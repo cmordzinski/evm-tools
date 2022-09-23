@@ -16,9 +16,9 @@ pip3 install -r requirements.txt
 </pre>
 
 ## utils 
-Where utility functions and python modules exist. 
-- utils.py: general utility functions commonly used in scripts. read_conf, configure_logger, etc
-- flashbot_tools.py: utility functions specific to using flashbots
+Where python modules with utility methods exist. 
+- utils.py: general utility methods commonly used in scripts. read_conf, configure_logger, etc.
+- flashbot_tools.py: utility methods specific to using flashbots. Contains FlashbotTools class.
 
 ## nft-minter
 Mint NFT's directly from a contract using flashbots.
