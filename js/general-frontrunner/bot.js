@@ -3,10 +3,26 @@ var abiDecoder = require('abi-decoder');
 var _ = require('lodash');
 var BigNumber = require('big-number');
 
-const {PANCAKE_ROUTER_ADDRESS, PANCAKE_FACTORY_ADDRESS, PANCAKE_ROUTER_ABI, PANCAKE_FACTORY_ABI, PANCAKE_POOL_ABI, HTTP_PROVIDER_LINK, WEBSOCKET_PROVIDER_LINK, TOKEN_ADDRESSES, PRIVATE_KEY, MAX_AMOUNT, SLIPPAGE,GASPRICE, MINPROFIT} = require('./constants.js');
-const INPUT_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'; //TOKEN IN
+// set constants from constant.js
+const {
+    PANCAKE_ROUTER_ADDRESS,
+    PANCAKE_FACTORY_ADDRESS,
+    PANCAKE_ROUTER_ABI,
+    PANCAKE_FACTORY_ABI,
+    PANCAKE_POOL_ABI,
+    HTTP_PROVIDER_LINK,
+    WEBSOCKET_PROVIDER_LINK, 
+    TOKEN_ADDRESSES, 
+    PRIVATE_KEY, 
+    MAX_AMOUNT,
+    SLIPPAGE,GASPRICE,
+    MINPROFIT
+    } = require('./constants.js');
+
+const INPUT_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'; //TOKEN BEING SWAPPED AGAINST
 const WBNB_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
 
+// define pool_info. 1 array per token in TOKEN_ADDRESSES will be added to this list
 var pool_info = [];
 let i;
 
@@ -23,7 +39,6 @@ const ONE_GWEI = 1e9;
 var attack_started = false;
 var buyNonce;
 var sellNonce
-
 
 var subscription;
 
@@ -93,13 +108,19 @@ async function triggersFrontRun(transaction, out_token_addresses) {
  if(parseInt(transaction['gasPrice']) / 10**9 > 10 || parseInt(transaction['gasPrice'])/10**9 < 3 ){
         return false;
     }
+    console.log('')
     console.log('txHash: '+ transaction['hash']);
     console.log('gasPrice: '+ transaction['gasPrice']/10**9);
     let data = parseTx(transaction['input']);
     let method = data[0];
     let params = data[1];
     console.log('method:' + method);
-    if(method == 'swapExactETHForTokens')
+    if(method != 'swapExactETHForTokens' && method != 'swapExactTokensForTokens')
+    {
+        console.log('method called in tx != swapExactEthForTokens != swapExactTokensForTokens. Ignoring.');
+        return false;
+    }
+    else if(method == 'swapExactETHForTokens')
     {
         let path = params[1].value;
         let in_token_addr = path[0];
@@ -110,6 +131,8 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }else{
+            console.log('token not whitelisted in TOKEN_ADDRESSES, skipping.');
+            console.log('token address: '+ out_token_addr);
             return false;
         }
 //reserves have to be divided by decimals
@@ -151,10 +174,13 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }else{
+            console.log('token not whitelisted in TOKEN_ADDRESSES, skipping.');
+            console.log('token address: '+ out_token_addr);
             return false;
         }
         if(in_token_addr != INPUT_TOKEN_ADDRESS)
         {
+            console.log('token paired to swap is not INPUT_TOKEN_ADDRESS, skipping.');
             return false;
         } 
         let b = params[0].value/10**18;
