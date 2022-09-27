@@ -6,8 +6,8 @@ const PANCAKE_ROUTER_ABI = [{"inputs":[{"internalType":"address","name":"_factor
 
 
 //you should install a full node on a good server so, much faster and speed natters
-const HTTP_PROVIDER_LINK = 'https://rpc.ankr.com/bsc';
-const WEBSOCKET_PROVIDER_LINK = 'wss://bsc-mainnet.nodereal.io/ws/v1/64a9df0874fb4a93b9d0a3849de012d3';
+const HTTP_PROVIDER_LINK = 'https://nd-654-414-664.p2pify.com/ae9f2cd14774753ae3150be26252ebbb';
+const WEBSOCKET_PROVIDER_LINK = 'wss://ws-nd-654-414-664.p2pify.com/ae9f2cd14774753ae3150be26252ebbb';
 const PRIVATE_KEY='c85f39ebe20fbd1460b0e9fdb4af10a4705d4ac3bb1b50efdbfbd7df8904728e'
 const TOKEN_ADDRESSES = [
     '0x465707181ACba42Ed01268A33f0507e320a154bD',

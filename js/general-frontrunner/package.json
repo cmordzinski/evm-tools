@@ -1,10 +1,10 @@
 {
   "name": "front-run",
   "version": "1.0.0",
-  "description": "general front-run bot",
+  "description": "uniswap front-run bot",
+  "main": "frontrun.js",
   "scripts": {
-    "approve-tokens": "node approveTokens.js",
-    "run-bot": "node bot.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "mayo",
   "license": "ISC",

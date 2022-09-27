@@ -36,26 +36,21 @@ const user_wallet = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
 const out_token_addresses = TOKEN_ADDRESSES; 
         
 const start = async() => {
-    console.log(`Starting... getting pool info for tokens in TOKEN_ADDRESSES from constants.js`)
     buyNonce =  await web3.eth.getTransactionCount(user_wallet.address);
     sellNonce = buyNonce + 1
-    console.log(`Buy nonce: ${buyNonce} - Sell nonce: ${sellNonce}`)
+    console.log(`buy nonce is ${buyNonce} and sell nonce is ${sellNonce}`);
     const  out_token_addresses  = TOKEN_ADDRESSES;
     for(var index = 0; index < out_token_addresses.length; index++) {
-        console.log(`Index: ${index}`)
         await getPoolInfo(WBNB_TOKEN_ADDRESS, out_token_addresses,index);
      }
-    console.log(`Getting pool info for tokens in TOKEN_ADDRESSES complete`)
 }
       
 async function main() { 
-    try {   
+try {   
         web3Ws.onopen = function(evt) {
-            console.log(`connecting to ${user_wallet.address}`)
             web3Ws.send(JSON.stringify({ method: "subscribe", topic: "transfers", address: user_wallet.address}));
-            console.log(`connected...`)
+            console.log('connected');
         }
-        console.log(`subscribing to pendingTransactions`)
         subscription = web3Ws.eth.subscribe('pendingTransactions', function (error, result) {
         }).on("data", async function (transactionHash) {
              let transaction = await web3.eth.getTransaction(transactionHash);
@@ -65,7 +60,7 @@ async function main() {
              }
         })
     } catch (error) {
-      console.log('failed to fetch mempool data:')
+      console.log('failed to fetch mempool data:');
       process.exit();
     }
 }
@@ -79,33 +74,31 @@ async function handleTransaction(transaction, out_token_addresses, user_wallet) 
         if(amount > maxAmount){
             amount = maxAmount
         }
-        console.log('amount is' + amount)
+        console.log('amount: ' + amount);
         var estimatedInput = ((amount*0.999)*(10**18));
         var realInput = SLIPPAGE*(amount*(10**18));
         var gasLimit = (300000);
         var outputtoken = await getAmountOut(estimatedInput, pool_info[i].input_volumn, pool_info[i].output_volumn);
         swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_addresses[i], user_wallet, transaction);
         swap(gasPrice, gasLimit, outputtoken, 0, 1, out_token_addresses[i], user_wallet, transaction);
-        console.log('transaction attempted to frontrun is '+ transaction['hash']);
+        console.log('Attempted frontrun txHash: '+ transaction['hash']);
         attack_started = false;
         return execute();
     }
 }
 
 async function triggersFrontRun(transaction, out_token_addresses) {  
-    console.log('Checking if frontrunning would be profitable')
     if(attack_started)
-        console.log('Already attempting to frontrun this transaction, nothing to do.')
         return false;
-    if(parseInt(transaction['gasPrice']) / 10**9 > 10 || parseInt(transaction['gasPrice'])/10**9 < 3 ){
-        console.log('gasPrice is > 10 or < 3, ignorning.')
+ if(parseInt(transaction['gasPrice']) / 10**9 > 10 || parseInt(transaction['gasPrice'])/10**9 < 3 ){
         return false;
     }
+    console.log('txHash: '+ transaction['hash']);
     console.log('gasPrice: '+ transaction['gasPrice']/10**9);
     let data = parseTx(transaction['input']);
     let method = data[0];
     let params = data[1];
-    console.log(`Method in pending tx: ${method}`)
+    console.log('method:' + method);
     if(method == 'swapExactETHForTokens')
     {
         let path = params[1].value;
@@ -117,14 +110,12 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }else{
-            console.log("The transaction is not one of the tokens whitelisted in TOKEN_ADDRESSES, ignoring")
             return false;
         }
 //reserves have to be divided by decimals
         let in_amount = transaction.value; 
         let b = transaction.value/10**18;
         let out = params[0].value/10**18;
-        console.log("Getting updated pool info")
         await updatePoolInfo(i);
         const x = pool_info[i].output_volumn/10**18;
         const K = (pool_info[i].input_volumn/10**18)*(pool_info[i].output_volumn/10**18)
@@ -137,17 +128,15 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         const afterSellY = K/(secondnewX+tokensReceived);
         const ethReceived = (y+a+(b/1.0025) - afterSellY);
         const profit = (ethReceived-a)-(0.0025)*(ethReceived+a)
-        console.log('Estimated profit is: '+ profit)
+        console.log('profit is...'+ profit);
         if(profit>MINPROFIT && a>0) 
         {
             amount = a;
             attack_started = true;
-            console.log('Trying to frontrun')
             return true;
         }
         else
         {
-            console.log('Estimated profit too low, ignoring')
             return false;
         }
     }
@@ -162,7 +151,6 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }else{
-            console.log("The transaction is not one of the tokens whitelisted in TOKEN_ADDRESSES, ignoring")
             return false;
         }
         if(in_token_addr != INPUT_TOKEN_ADDRESS)
@@ -184,18 +172,16 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         const afterSellY = K/(secondnewX+tokensReceived);
         const ethReceived = (y+a+(b/1.0025) - afterSellY);
         const profit = (ethReceived-a)-(0.0025)*(ethReceived+a)
-        console.log('Estimated profit is: '+ profit)
+        console.log('profit is...'+ profit);
         if(profit>MINPROFIT && a>0) 
         {
           amount = a;
           attack_started = true;
-          console.log('Trying to frontrun')
           return true;
         }
         else
         {
-          console.log('Estimated profit too low, ignoring')
-          return false;
+            return false;
         }
     }
     return false;
@@ -265,8 +251,8 @@ async function isPending(transactionHash) {
 //useful structure
 async function updatePoolInfo(i) {
     try{
-        console.log('updating...')
-        console.log(i)
+        console.log('updating...');
+        console.log(i);
         var reserves = await pool_info[i].contract.methods.getReserves().call();
 
         if(pool_info[i].forward) {
@@ -289,6 +275,7 @@ async function updatePoolInfo(i) {
 }
 
 async function getPoolInfo(input_token_address, out_token_addresses, index){
+    console.log(index);
 
         var pool_address = await pancakeFactory.methods.getPair(input_token_address, out_token_addresses[index]).call();
         var pool_contract = new web3.eth.Contract(PANCAKE_POOL_ABI, pool_address);
@@ -335,7 +322,7 @@ const getUniv2PairAddress = (tokenA, tokenB) => {
   
 const execute = async() =>{
 start().then(() => {
-    console.log('Running main()')
+    console.log('main...');
     main()
 });
 }
