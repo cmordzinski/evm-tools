@@ -16,3 +16,6 @@ venv/
 env.bak/
 venv.bak/
 ENV/
+
+# Private
+private
