@@ -1,3 +1,5 @@
+Original code copied from: https://github.com/xCaptainFortune/Frontrunning-Bot-by-xCaptainFortune
+
 # Frontrunning Bot by xCaptainFortune
 
 This is a frontrunning bot I wrote as a better alternative to LIBEVM'S Sandwich bot. This bot contains:
