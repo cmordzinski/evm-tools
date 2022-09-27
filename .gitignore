@@ -17,5 +17,8 @@ env.bak/
 venv.bak/
 ENV/
 
+#Node/JS
+node_modules
+
 # Private
 private
