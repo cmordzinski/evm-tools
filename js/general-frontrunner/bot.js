@@ -12,16 +12,15 @@ const {
     PANCAKE_ROUTER_ABI,
     PANCAKE_FACTORY_ABI,
     PANCAKE_POOL_ABI,
-    INPUT_TOKEN_ADDRESS,
-    WBNB_TOKEN_ADDRESS,
     HTTP_PROVIDER_LINK,
-    WEBSOCKET_PROVIDER_LINK, 
-    WHITELISTED_TOKEN_ADDRESSES,  
+    WEBSOCKET_PROVIDER_LINK,  
     MAX_AMOUNT,
     SLIPPAGE,
     GASPRICE,
     MINPROFIT,
-    ONE_GWEI
+    ONE_GWEI,
+    INPUT_TOKEN_ADDRESS,
+    OUTPUT_TOKEN_ADDRESSES,
     } = require('./constants.js');
 
 // Vars
@@ -53,13 +52,13 @@ const start = async() => {
     buyNonce =  await web3.eth.getTransactionCount(user_wallet.address);
     sellNonce = buyNonce + 1
     console.log(`[INFO] Buy nonce: ${buyNonce} - Sell nonce: ${sellNonce}`);
-    const len_wl_token_list = WHITELISTED_TOKEN_ADDRESSES.length
-    console.log(`[INFO] ${len_wl_token_list} tokens found in WHITELISTED_TOKEN_ADDRESSES`);
+    const len_wl_token_list = OUTPUT_TOKEN_ADDRESSES.length
+    console.log(`[INFO] ${len_wl_token_list} tokens found in OUTPUT_TOKEN_ADDRESSES`);
     for(var index = 0; index < len_wl_token_list; index++) {
         console.log(`[INFO] Getting pool info for ${index+1}/${len_wl_token_list} tokens`);
-        await getPoolInfo(WBNB_TOKEN_ADDRESS, WHITELISTED_TOKEN_ADDRESSES, index);
+        await getPoolInfo(INPUT_TOKEN_ADDRESS, OUTPUT_TOKEN_ADDRESSES, index);
      }
-    console.log('[INFO] Getting pool info for tokens in WHITELISTED_TOKEN_ADDRESSES complete');
+    console.log('[INFO] Getting pool info for tokens in OUTPUT_TOKEN_ADDRESSES complete');
 
 
 }
@@ -76,7 +75,7 @@ async function main() {
              let transaction = await web3.eth.getTransaction(transactionHash);
              if (transaction != null && transaction['to'] == PANCAKE_ROUTER_ADDRESS)
              {
-                 await handleTransaction(transaction, WHITELISTED_TOKEN_ADDRESSES, user_wallet);
+                 await handleTransaction(transaction, OUTPUT_TOKEN_ADDRESSES, user_wallet);
              }
         })
     } catch (error) {
@@ -136,7 +135,7 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         }
         else
         {
-            console.log('[ERROR] token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, ignoring.');
+            console.log('[ERROR] token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
             console.log('[ERROR] token address: '+ out_token_addr);
             return false;
         }
@@ -183,7 +182,7 @@ async function triggersFrontRun(transaction, out_token_addresses) {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }
         else{
-            console.log('[ERROR] token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, ignoring.');
+            console.log('[ERROR] token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
             console.log('[ERROR] token address: '+ out_token_addr);
             return false;
         }
