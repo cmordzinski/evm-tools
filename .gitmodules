@@ -1,3 +1,3 @@
-[submodule "utils/web3_flashbots"]
-	path = utils/web3_flashbots
+[submodule "python/utils/web3_flashbots"]
+	path = python/utils/web3_flashbots
 	url = https://github.com/flashbots/web3-flashbots.git
