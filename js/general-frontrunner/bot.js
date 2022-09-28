@@ -1,34 +1,33 @@
+//
+require('dotenv').config();
 var Web3 = require('web3');
 var abiDecoder = require('abi-decoder');
 var _ = require('lodash');
 var BigNumber = require('big-number');
 
-// set constants from constant.js
+const PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY;
 const {
     PANCAKE_ROUTER_ADDRESS,
     PANCAKE_FACTORY_ADDRESS,
     PANCAKE_ROUTER_ABI,
     PANCAKE_FACTORY_ABI,
     PANCAKE_POOL_ABI,
+    INPUT_TOKEN_ADDRESS,
+    WBNB_TOKEN_ADDRESS,
     HTTP_PROVIDER_LINK,
     WEBSOCKET_PROVIDER_LINK, 
-    TOKEN_ADDRESSES, 
-    PRIVATE_KEY, 
+    WHITELISTED_TOKEN_ADDRESSES,  
     MAX_AMOUNT,
-    SLIPPAGE,GASPRICE,
+    SLIPPAGE,
+    GASPRICE,
     MINPROFIT
     } = require('./constants.js');
 
-const INPUT_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'; //TOKEN BEING SWAPPED AGAINST
-const WBNB_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
-
-// define pool_info. 1 array per token in TOKEN_ADDRESSES will be added to this list
+// define pool_info. 1 array per token in WHITELISTED_TOKEN_ADDRESSES will be added to this list
 var pool_info = [];
 let i;
 
 var amount;
-const maxAmount =  MAX_AMOUNT;
-
 var web3;
 var web3Ws;
 var pancakeRouter;
@@ -48,13 +47,13 @@ pancakeRouter = new web3.eth.Contract(PANCAKE_ROUTER_ABI, PANCAKE_ROUTER_ADDRESS
 pancakeFactory = new web3.eth.Contract(PANCAKE_FACTORY_ABI, PANCAKE_FACTORY_ADDRESS);
 abiDecoder.addABI(PANCAKE_ROUTER_ABI);
 const user_wallet = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
-const out_token_addresses = TOKEN_ADDRESSES; 
+const out_token_addresses = WHITELISTED_TOKEN_ADDRESSES; 
         
 const start = async() => {
     buyNonce =  await web3.eth.getTransactionCount(user_wallet.address);
     sellNonce = buyNonce + 1
     console.log(`buy nonce is ${buyNonce} and sell nonce is ${sellNonce}`);
-    const  out_token_addresses  = TOKEN_ADDRESSES;
+    const  out_token_addresses  = WHITELISTED_TOKEN_ADDRESSES;
     for(var index = 0; index < out_token_addresses.length; index++) {
         await getPoolInfo(WBNB_TOKEN_ADDRESS, out_token_addresses,index);
      }
@@ -86,8 +85,8 @@ async function handleTransaction(transaction, out_token_addresses, user_wallet) 
         subscription.unsubscribe();
         let gasPrice = parseInt(transaction['gasPrice']);
         let newGasPrice = gasPrice + GASPRICE*ONE_GWEI;
-        if(amount > maxAmount){
-            amount = maxAmount
+        if(amount > MAX_AMOUNT){
+            amount = MAX_AMOUNT
         }
         console.log('amount: ' + amount);
         var estimatedInput = ((amount*0.999)*(10**18));
@@ -131,7 +130,7 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }else{
-            console.log('token not whitelisted in TOKEN_ADDRESSES, skipping.');
+            console.log('token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, skipping.');
             console.log('token address: '+ out_token_addr);
             return false;
         }
@@ -174,7 +173,7 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }else{
-            console.log('token not whitelisted in TOKEN_ADDRESSES, skipping.');
+            console.log('token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, skipping.');
             console.log('token address: '+ out_token_addr);
             return false;
         }
