@@ -4,6 +4,7 @@ var Web3 = require('web3');
 var abiDecoder = require('abi-decoder');
 var _ = require('lodash');
 var BigNumber = require('big-number');
+var winston = require('winston');
 
 // Constants
 const {
@@ -46,19 +47,38 @@ abiDecoder.addABI(PANCAKE_ROUTER_ABI);
 // Get a LocalAccount object from the WALLET_PRIVATE_KEY in the .env file
 const user_wallet = web3.eth.accounts.privateKeyToAccount(process.env.WALLET_PRIVATE_KEY);
 
+// Create a logger
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json(),
+    ),
+    transports: [
+        new winston.transports.File({filename: 'logs/road-runner.log'})
+    ],
+});
+
+// If NODE_ENV in .env != 'production', log to console and file
+if (process.env.NODE_ENV != 'PRODUCTION') {
+    logger.add(new winston.transports.Console({
+        format: winston.format.cli(),
+    }));
+}
+
 // Start
 const start = async() => {
-    console.log('[INFO] Gathering preliminary information')
+    logger.info('Gathering preliminary information')
     buyNonce =  await web3.eth.getTransactionCount(user_wallet.address);
     sellNonce = buyNonce + 1
-    console.log(`[INFO] Buy nonce: ${buyNonce} - Sell nonce: ${sellNonce}`);
+    logger.info(`Buy nonce: ${buyNonce} - Sell nonce: ${sellNonce}`);
     const len_wl_token_list = OUTPUT_TOKEN_ADDRESSES.length
-    console.log(`[INFO] ${len_wl_token_list} tokens found in OUTPUT_TOKEN_ADDRESSES`);
+    logger.info(`${len_wl_token_list} tokens found in OUTPUT_TOKEN_ADDRESSES`);
     for(var index = 0; index < len_wl_token_list; index++) {
-        console.log(`[INFO] Getting pool info for ${index+1}/${len_wl_token_list} tokens`);
+        logger.info(`Getting pool info for ${index+1}/${len_wl_token_list} tokens`);
         await getPoolInfo(INPUT_TOKEN_ADDRESS, OUTPUT_TOKEN_ADDRESSES, index);
      }
-    console.log('[INFO] Getting pool info for tokens in OUTPUT_TOKEN_ADDRESSES complete');
+    logger.info('Getting pool info for tokens in OUTPUT_TOKEN_ADDRESSES complete');
 
 
 }
@@ -67,9 +87,9 @@ async function main() {
     try {   
         web3Ws.onopen = function(evt) {
             web3Ws.send(JSON.stringify({ method: "subscribe", topic: "transfers", address: user_wallet.address}));
-            console.log('connected');
+            logger.info('connected');
         }
-        console.log('[INFO] Subscribing to pendingTransaction events');
+        logger.info('Subscribing to pendingTransaction events');
         subscription = web3Ws.eth.subscribe('pendingTransactions', function (error, result) {
         }).on("data", async function (transactionHash) {
              let transaction = await web3.eth.getTransaction(transactionHash);
@@ -79,7 +99,7 @@ async function main() {
              }
         })
     } catch (error) {
-      console.log(`[ERROR] failed to fetch mempool data: ${error}`);
+      logger.error(`failed to fetch mempool data: ${error}`);
       process.exit();
     }
 }
@@ -99,7 +119,7 @@ async function handleTransaction(transaction, out_token_addresses, user_wallet) 
         var outputtoken = await getAmountOut(estimatedInput, pool_info[i].input_volumn, pool_info[i].output_volumn);
         swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_addresses[i], user_wallet, transaction);
         swap(gasPrice, gasLimit, outputtoken, 0, 1, out_token_addresses[i], user_wallet, transaction);
-        console.log('[INFO] Attempted frontrun - txHash: '+ transaction['hash']);
+        logger.info('Attempted frontrun - txHash: '+ transaction['hash']);
         attack_started = false;
         return execute();
     }
@@ -111,19 +131,19 @@ async function triggersFrontRun(transaction, out_token_addresses) {
     if(parseInt(transaction['gasPrice']) / 10**9 > 10 || parseInt(transaction['gasPrice'])/10**9 < 3 ){
         return false;
     }
-    console.log('[INFO] txHash: '+ transaction['hash']);
-    console.log('[INFO] gasPrice: '+ transaction['gasPrice']/10**9);
+    logger.info('txHash: '+ transaction['hash']);
+    logger.info('gasPrice: '+ transaction['gasPrice']/10**9);
     let data = parseTx(transaction['input']);
     let method = data[0];
     let params = data[1];
     if(method != 'swapExactETHForTokens' && method != 'swapExactTokensForTokens')
     {
-        console.log('[INFO] method called is not swapExactEthForTokens or swapExactTokensForTokens, ignoring.');
+        logger.info('method called is not swapExactEthForTokens or swapExactTokensForTokens, ignoring.');
         return false;
     }
     else if(method == 'swapExactETHForTokens')
     {
-        console.log('[INFO] method:' + method);
+        logger.info('method:' + method);
         let path = params[1].value;
         let in_token_addr = path[0];
         let out_token_addr = path[path.length-1];
@@ -135,8 +155,8 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         }
         else
         {
-            console.log('[ERROR] token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
-            console.log('[ERROR] token address: '+ out_token_addr);
+            logger.error('Token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
+            logger.error('Token address: '+ out_token_addr);
             return false;
         }
         //reserves have to be divided by decimals
@@ -155,23 +175,23 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         const afterSellY = K/(secondnewX+tokensReceived);
         const ethReceived = (y+a+(b/1.0025) - afterSellY);
         const profit = (ethReceived-a)-(0.0025)*(ethReceived+a)
-        console.log(`[INFO] estimated profit is: ${profit}`);
+        logger.info(`Estimated profit is: ${profit}`);
         if(profit>MINPROFIT && a>0) 
         {
             amount = a;
             attack_started = true;
-            console.log("would have frontran")
+            logger.info("would have frontran")
             return false;
         }
         else
         {
-            console.log('[INFO] estimated profit too low, ignoring.');
+            logger.info('Estimated profit too low, ignoring.');
             return false;
         }
     }
     else if(method == 'swapExactTokensForTokens')
     {
-        console.log('[INFO] method:' + method);
+        logger.info('method:' + method);
         let path = params[2].value;
         let in_token_addr = path[path.length-2];
         let out_token_addr = path[path.length-1];
@@ -182,13 +202,13 @@ async function triggersFrontRun(transaction, out_token_addresses) {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }
         else{
-            console.log('[ERROR] token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
-            console.log('[ERROR] token address: '+ out_token_addr);
+            logger.error('Token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
+            logger.error('Token address: '+ out_token_addr);
             return false;
         }
         if(in_token_addr != INPUT_TOKEN_ADDRESS)
         {
-            console.log('[INFO] token paired to swap is not INPUT_TOKEN_ADDRESS, ignoring.');
+            logger.info('Token paired to swap is not INPUT_TOKEN_ADDRESS, ignoring.');
             return false;
         } 
         let b = params[0].value/10**18;
@@ -206,21 +226,21 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         const afterSellY = K/(secondnewX+tokensReceived);
         const ethReceived = (y+a+(b/1.0025) - afterSellY);
         const profit = (ethReceived-a)-(0.0025)*(ethReceived+a)
-        console.log(`[INFO] estimated profit is: ${profit}`);
+        logger.info(`Estimated profit is: ${profit}`);
         if(profit>MINPROFIT && a>0) 
         {
             amount = a;
             attack_started = true;
-            console.log("would have frontran")
+            logger.info("would have frontran")
             return false;
         }
         else
         {           
-            console.log('[INFO] estimated profit too low. Skipping.');
+            logger.info('Estimated profit too low. Skipping.');
             return false;
         }
     }
-    console.log('[INFO] Skipping due to implicit ignore')
+    logger.info('Skipping due to implicit ignore')
     return false;
 }
 
@@ -269,7 +289,7 @@ async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token
     if(trade == 0) {
         let is_pending = await isPending(transaction['hash']);
         if(!is_pending) {
-            console.log("The transaction you want to attack has already been completed!!!");
+            logger.info("The transaction you want to attack has already been completed!!!");
             process.exit();
         }else{
         web3.eth.sendSignedTransaction(signedTx.rawTransaction)
@@ -318,7 +338,7 @@ async function getPoolInfo(input_token_address, out_token_addresses, index){
 
 async function updatePoolInfo(i) {
     try{
-        console.log(`[INFO] updating pool_info at index ${i}`);
+        logger.info(`Updating pool_info at index ${i}`);
         var reserves = await pool_info[i].contract.methods.getReserves().call();
 
         if(pool_info[i].forward) {
@@ -334,7 +354,7 @@ async function updatePoolInfo(i) {
 
     }catch (error) {
       
-        console.log('Failed To Get Pair Info');
+        logger.info('Failed To Get Pair Info');
 
         return false;
     }
@@ -356,7 +376,7 @@ async function updatePoolInfo(i) {
   
 const execute = async() =>{
 start().then(() => {
-    console.log('[INFO] Starting ...');
+    logger.info('Starting ...');
     main()
 });
 }
