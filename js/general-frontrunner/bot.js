@@ -134,7 +134,9 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         if(_.includes(out_token_addresses, out_token_addr))
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
-        }else{
+        }
+        else
+        {
             console.log('[ERROR] token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, ignoring.');
             console.log('[ERROR] token address: '+ out_token_addr);
             return false;
@@ -160,7 +162,8 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             amount = a;
             attack_started = true;
-            return true;
+            console.log("would have frontran")
+            return false;
         }
         else
         {
@@ -179,7 +182,8 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         if(_.includes(out_token_addresses, out_token_addr))
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
-        }else{
+        }
+        else{
             console.log('[ERROR] token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, ignoring.');
             console.log('[ERROR] token address: '+ out_token_addr);
             return false;
@@ -209,7 +213,8 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             amount = a;
             attack_started = true;
-            return true;
+            console.log("would have frontran")
+            return false;
         }
         else
         {           
@@ -315,8 +320,7 @@ async function getPoolInfo(input_token_address, out_token_addresses, index){
 
 async function updatePoolInfo(i) {
     try{
-        console.log('updating...');
-        console.log(i);
+        console.log(`[INFO] updating pool_info at index ${i}`);
         var reserves = await pool_info[i].contract.methods.getReserves().call();
 
         if(pool_info[i].forward) {
