@@ -20,6 +20,7 @@ const WHITELISTED_TOKEN_ADDRESSES = [
     //'0x5B6bf0c7f989dE824677cFBD507D9635965e9cD3'
 ]
 
+const ONE_GWEI = 1e9;
 const MAX_AMOUNT = 20; //max about of bnb
 const SLIPPAGE = 1.04; //adjusts for volatility in the pool. For example, input is 1 eth but with volatility it can reach up to 1.04 eth. 
 const GASPRICE = 30; //30 gwei more than the frontrunned tx. Some frontrunners will use up to 120 gwei
@@ -50,5 +51,6 @@ module.exports = {
     MAX_AMOUNT,
     SLIPPAGE,
     GASPRICE,
-    MINPROFIT
+    MINPROFIT,
+    ONE_GWEI
 };

@@ -1,11 +1,21 @@
-//
 require('dotenv').config();
 var Web3 = require('web3');
 var abiDecoder = require('abi-decoder');
 var _ = require('lodash');
 var BigNumber = require('big-number');
 
-const PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY;
+var pool_info = []; // 1 array per token in WHITELISTED_TOKEN_ADDRESSES gets added to this list
+let i;
+var amount;
+var web3;
+var web3Ws;
+var pancakeRouter;
+var pancakeFactory;
+var attack_started = false;
+var buyNonce;
+var sellNonce
+var subscription;
+
 const {
     PANCAKE_ROUTER_ADDRESS,
     PANCAKE_FACTORY_ADDRESS,
@@ -20,42 +30,25 @@ const {
     MAX_AMOUNT,
     SLIPPAGE,
     GASPRICE,
-    MINPROFIT
+    MINPROFIT,
+    ONE_GWEI
     } = require('./constants.js');
 
-// define pool_info. 1 array per token in WHITELISTED_TOKEN_ADDRESSES will be added to this list
-var pool_info = [];
-let i;
-
-var amount;
-var web3;
-var web3Ws;
-var pancakeRouter;
-var pancakeFactory;
-
-const ONE_GWEI = 1e9;
-
-var attack_started = false;
-var buyNonce;
-var sellNonce
-
-var subscription;
 
 web3 = new Web3(new Web3.providers.HttpProvider(HTTP_PROVIDER_LINK));
 web3Ws = new Web3(new Web3.providers.WebsocketProvider(WEBSOCKET_PROVIDER_LINK));
 pancakeRouter = new web3.eth.Contract(PANCAKE_ROUTER_ABI, PANCAKE_ROUTER_ADDRESS);
 pancakeFactory = new web3.eth.Contract(PANCAKE_FACTORY_ABI, PANCAKE_FACTORY_ADDRESS);
 abiDecoder.addABI(PANCAKE_ROUTER_ABI);
-const user_wallet = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
-const out_token_addresses = WHITELISTED_TOKEN_ADDRESSES; 
+
+const user_wallet = web3.eth.accounts.privateKeyToAccount(process.env.WALLET_PRIVATE_KEY);
         
 const start = async() => {
     buyNonce =  await web3.eth.getTransactionCount(user_wallet.address);
     sellNonce = buyNonce + 1
-    console.log(`buy nonce is ${buyNonce} and sell nonce is ${sellNonce}`);
-    const  out_token_addresses  = WHITELISTED_TOKEN_ADDRESSES;
-    for(var index = 0; index < out_token_addresses.length; index++) {
-        await getPoolInfo(WBNB_TOKEN_ADDRESS, out_token_addresses,index);
+    console.log(`Buy Nonce: ${buyNonce} - Sell Nonce: ${sellNonce}`);
+    for(var index = 0; index < WHITELISTED_TOKEN_ADDRESSES.length; index++) {
+        await getPoolInfo(WBNB_TOKEN_ADDRESS, WHITELISTED_TOKEN_ADDRESSES, index);
      }
 }
       
@@ -70,7 +63,7 @@ try {
              let transaction = await web3.eth.getTransaction(transactionHash);
              if (transaction != null && transaction['to'] == PANCAKE_ROUTER_ADDRESS)
              {
-                 await handleTransaction(transaction, out_token_addresses, user_wallet);
+                 await handleTransaction(transaction, WHITELISTED_TOKEN_ADDRESSES, user_wallet);
              }
         })
     } catch (error) {
