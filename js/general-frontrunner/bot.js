@@ -23,6 +23,7 @@ const {
     MINPROFIT,
     ONE_GWEI
     } = require('./constants.js');
+const { logger } = require('@ethersproject/wordlists');
 
 // Vars
 var pool_info = [];
@@ -47,7 +48,7 @@ abiDecoder.addABI(PANCAKE_ROUTER_ABI);
 // Get a LocalAccount object from the WALLET_PRIVATE_KEY in the .env file
 const user_wallet = web3.eth.accounts.privateKeyToAccount(process.env.WALLET_PRIVATE_KEY);
 
-
+// Start
 const start = async() => {
     console.log('[INFO] Gathering preliminary information')
     buyNonce =  await web3.eth.getTransactionCount(user_wallet.address);
@@ -106,26 +107,25 @@ async function handleTransaction(transaction, out_token_addresses, user_wallet) 
     }
 }
 
-async function triggersFrontRun(transaction, out_token_addresses) {  
+async function triggersFrontRun(transaction, out_token_addresses) { 
     if(attack_started)
         return false;
- if(parseInt(transaction['gasPrice']) / 10**9 > 10 || parseInt(transaction['gasPrice'])/10**9 < 3 ){
+    if(parseInt(transaction['gasPrice']) / 10**9 > 10 || parseInt(transaction['gasPrice'])/10**9 < 3 ){
         return false;
     }
-    console.log('')
-    console.log('txHash: '+ transaction['hash']);
-    console.log('gasPrice: '+ transaction['gasPrice']/10**9);
+    console.log('[INFO] txHash: '+ transaction['hash']);
+    console.log('[INFO] gasPrice: '+ transaction['gasPrice']/10**9);
     let data = parseTx(transaction['input']);
     let method = data[0];
     let params = data[1];
-    console.log('method:' + method);
     if(method != 'swapExactETHForTokens' && method != 'swapExactTokensForTokens')
     {
-        console.log('method called in tx != swapExactEthForTokens != swapExactTokensForTokens. Ignoring.');
+        console.log('[INFO] method called is not swapExactEthForTokens or swapExactTokensForTokens, ignoring.');
         return false;
     }
     else if(method == 'swapExactETHForTokens')
     {
+        console.log('[INFO] method:' + method);
         let path = params[1].value;
         let in_token_addr = path[0];
         let out_token_addr = path[path.length-1];
@@ -135,8 +135,8 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }else{
-            console.log('token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, skipping.');
-            console.log('token address: '+ out_token_addr);
+            console.log('[ERROR] token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, ignoring.');
+            console.log('[ERROR] token address: '+ out_token_addr);
             return false;
         }
         //reserves have to be divided by decimals
@@ -155,7 +155,7 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         const afterSellY = K/(secondnewX+tokensReceived);
         const ethReceived = (y+a+(b/1.0025) - afterSellY);
         const profit = (ethReceived-a)-(0.0025)*(ethReceived+a)
-        console.log('profit is...'+ profit);
+        console.log(`[INFO] estimated profit is: ${profit}`);
         if(profit>MINPROFIT && a>0) 
         {
             amount = a;
@@ -164,11 +164,13 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         }
         else
         {
+            console.log('[INFO] estimated profit too low, ignoring.');
             return false;
         }
     }
     else if(method == 'swapExactTokensForTokens')
     {
+        console.log('[INFO] method:' + method);
         let path = params[2].value;
         let in_token_addr = path[path.length-2];
         let out_token_addr = path[path.length-1];
@@ -178,13 +180,13 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         {
             i = _.indexOf(out_token_addresses, out_token_addr)
         }else{
-            console.log('token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, skipping.');
-            console.log('token address: '+ out_token_addr);
+            console.log('[ERROR] token not whitelisted in WHITELISTED_TOKEN_ADDRESSES, ignoring.');
+            console.log('[ERROR] token address: '+ out_token_addr);
             return false;
         }
         if(in_token_addr != INPUT_TOKEN_ADDRESS)
         {
-            console.log('token paired to swap is not INPUT_TOKEN_ADDRESS, skipping.');
+            console.log('[INFO] token paired to swap is not INPUT_TOKEN_ADDRESS, ignoring.');
             return false;
         } 
         let b = params[0].value/10**18;
@@ -202,22 +204,31 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         const afterSellY = K/(secondnewX+tokensReceived);
         const ethReceived = (y+a+(b/1.0025) - afterSellY);
         const profit = (ethReceived-a)-(0.0025)*(ethReceived+a)
-        console.log('profit is...'+ profit);
+        console.log(`[INFO] estimated profit is: ${profit}`);
         if(profit>MINPROFIT && a>0) 
         {
-          amount = a;
-          attack_started = true;
-          return true;
+            amount = a;
+            attack_started = true;
+            return true;
         }
         else
-        {
+        {           
+            console.log('[INFO] estimated profit too low. Skipping.');
             return false;
         }
     }
+    console.log('[INFO] Skipping due to implicit ignore')
     return false;
 }
 
-// Execute a swap
+async function getAmountOut(aIn, reserveA, reserveB) {
+    const aInWithFee = BigNumber(aIn).multiply(997); //0.3% fee that's right
+    const numerator = BigNumber(aInWithFee).multiply(reserveB)
+    const denominator = BigNumber(aInWithFee).add(BigNumber(reserveA).multiply(1000));
+    const bOut = BigNumber(numerator).divide(denominator);
+    return bOut
+}
+
 async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token_address, user_wallet, transaction) {
     var from = user_wallet;
     var deadline;
@@ -265,7 +276,6 @@ async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token
     }
 }
 
-// Parse a pending tx for the method called and params
 function parseTx(input) {
     if (input == '0x')
         return ['0x', []]
@@ -278,32 +288,6 @@ function parseTx(input) {
 
 async function isPending(transactionHash) {
     return await web3.eth.getTransactionReceipt(transactionHash) == null;
-}
-
-// Update an array in pool_info by index
-async function updatePoolInfo(i) {
-    try{
-        console.log('updating...');
-        console.log(i);
-        var reserves = await pool_info[i].contract.methods.getReserves().call();
-
-        if(pool_info[i].forward) {
-            var eth_balance = reserves[0];
-            var token_balance = reserves[1];
-        } else {
-            var eth_balance = reserves[1];
-            var token_balance = reserves[0];
-        }
-
-        pool_info[i].input_volumn = eth_balance;
-        pool_info[i].output_volumn = token_balance;
-
-    }catch (error) {
-      
-        console.log('Failed To Get Pair Info');
-
-        return false;
-    }
 }
 
 async function getPoolInfo(input_token_address, out_token_addresses, index){
@@ -329,12 +313,29 @@ async function getPoolInfo(input_token_address, out_token_addresses, index){
     
 }
 
-async function getAmountOut(aIn, reserveA, reserveB) {
-    const aInWithFee = BigNumber(aIn).multiply(997); //0.3% fee that's right
-    const numerator = BigNumber(aInWithFee).multiply(reserveB)
-    const denominator = BigNumber(aInWithFee).add(BigNumber(reserveA).multiply(1000));
-    const bOut = BigNumber(numerator).divide(denominator);
-    return bOut
+async function updatePoolInfo(i) {
+    try{
+        console.log('updating...');
+        console.log(i);
+        var reserves = await pool_info[i].contract.methods.getReserves().call();
+
+        if(pool_info[i].forward) {
+            var eth_balance = reserves[0];
+            var token_balance = reserves[1];
+        } else {
+            var eth_balance = reserves[1];
+            var token_balance = reserves[0];
+        }
+
+        pool_info[i].input_volumn = eth_balance;
+        pool_info[i].output_volumn = token_balance;
+
+    }catch (error) {
+      
+        console.log('Failed To Get Pair Info');
+
+        return false;
+    }
 }
 
 //-----------------EXTRA FUNCTIONS getPairAddress of tokenA-tokenB pool offline.
