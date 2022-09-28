@@ -1,21 +1,11 @@
+// CommonJS imports
 require('dotenv').config();
 var Web3 = require('web3');
 var abiDecoder = require('abi-decoder');
 var _ = require('lodash');
 var BigNumber = require('big-number');
 
-var pool_info = []; // 1 array per token in WHITELISTED_TOKEN_ADDRESSES gets added to this list
-let i;
-var amount;
-var web3;
-var web3Ws;
-var pancakeRouter;
-var pancakeFactory;
-var attack_started = false;
-var buyNonce;
-var sellNonce
-var subscription;
-
+// Constants
 const {
     PANCAKE_ROUTER_ADDRESS,
     PANCAKE_FACTORY_ADDRESS,
@@ -34,30 +24,53 @@ const {
     ONE_GWEI
     } = require('./constants.js');
 
+// Vars
+var pool_info = [];
+let i;
+var amount;
+var web3;
+var web3Ws;
+var pancakeRouter;
+var pancakeFactory;
+var buyNonce;
+var sellNonce
+var subscription;
+var attack_started = false;
 
+// Define web3, web3Ws, pancakeRouter, pancakeFactory objects
 web3 = new Web3(new Web3.providers.HttpProvider(HTTP_PROVIDER_LINK));
 web3Ws = new Web3(new Web3.providers.WebsocketProvider(WEBSOCKET_PROVIDER_LINK));
 pancakeRouter = new web3.eth.Contract(PANCAKE_ROUTER_ABI, PANCAKE_ROUTER_ADDRESS);
 pancakeFactory = new web3.eth.Contract(PANCAKE_FACTORY_ABI, PANCAKE_FACTORY_ADDRESS);
 abiDecoder.addABI(PANCAKE_ROUTER_ABI);
 
+// Get a LocalAccount object from the WALLET_PRIVATE_KEY in the .env file
 const user_wallet = web3.eth.accounts.privateKeyToAccount(process.env.WALLET_PRIVATE_KEY);
-        
+
+
 const start = async() => {
+    console.log('[INFO] Gathering preliminary information')
     buyNonce =  await web3.eth.getTransactionCount(user_wallet.address);
     sellNonce = buyNonce + 1
-    console.log(`Buy Nonce: ${buyNonce} - Sell Nonce: ${sellNonce}`);
-    for(var index = 0; index < WHITELISTED_TOKEN_ADDRESSES.length; index++) {
+    console.log(`[INFO] Buy nonce: ${buyNonce} - Sell nonce: ${sellNonce}`);
+    const len_wl_token_list = WHITELISTED_TOKEN_ADDRESSES.length
+    console.log(`[INFO] ${len_wl_token_list} tokens found in WHITELISTED_TOKEN_ADDRESSES`);
+    for(var index = 0; index < len_wl_token_list; index++) {
+        console.log(`[INFO] Getting pool info for ${index+1}/${len_wl_token_list} tokens`);
         await getPoolInfo(WBNB_TOKEN_ADDRESS, WHITELISTED_TOKEN_ADDRESSES, index);
      }
+    console.log('[INFO] Getting pool info for tokens in WHITELISTED_TOKEN_ADDRESSES complete');
+
+
 }
-      
+
 async function main() { 
-try {   
+    try {   
         web3Ws.onopen = function(evt) {
             web3Ws.send(JSON.stringify({ method: "subscribe", topic: "transfers", address: user_wallet.address}));
             console.log('connected');
         }
+        console.log('[INFO] Subscribing to pendingTransaction events');
         subscription = web3Ws.eth.subscribe('pendingTransactions', function (error, result) {
         }).on("data", async function (transactionHash) {
              let transaction = await web3.eth.getTransaction(transactionHash);
@@ -67,7 +80,7 @@ try {
              }
         })
     } catch (error) {
-      console.log('failed to fetch mempool data:');
+      console.log(`[ERROR] failed to fetch mempool data: ${error}`);
       process.exit();
     }
 }
@@ -81,14 +94,13 @@ async function handleTransaction(transaction, out_token_addresses, user_wallet) 
         if(amount > MAX_AMOUNT){
             amount = MAX_AMOUNT
         }
-        console.log('amount: ' + amount);
         var estimatedInput = ((amount*0.999)*(10**18));
         var realInput = SLIPPAGE*(amount*(10**18));
         var gasLimit = (300000);
         var outputtoken = await getAmountOut(estimatedInput, pool_info[i].input_volumn, pool_info[i].output_volumn);
         swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_addresses[i], user_wallet, transaction);
         swap(gasPrice, gasLimit, outputtoken, 0, 1, out_token_addresses[i], user_wallet, transaction);
-        console.log('Attempted frontrun txHash: '+ transaction['hash']);
+        console.log('[INFO] Attempted frontrun - txHash: '+ transaction['hash']);
         attack_started = false;
         return execute();
     }
@@ -127,7 +139,7 @@ async function triggersFrontRun(transaction, out_token_addresses) {
             console.log('token address: '+ out_token_addr);
             return false;
         }
-//reserves have to be divided by decimals
+        //reserves have to be divided by decimals
         let in_amount = transaction.value; 
         let b = transaction.value/10**18;
         let out = params[0].value/10**18;
@@ -205,6 +217,7 @@ async function triggersFrontRun(transaction, out_token_addresses) {
     return false;
 }
 
+// Execute a swap
 async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token_address, user_wallet, transaction) {
     var from = user_wallet;
     var deadline;
@@ -252,6 +265,7 @@ async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token
     }
 }
 
+// Parse a pending tx for the method called and params
 function parseTx(input) {
     if (input == '0x')
         return ['0x', []]
@@ -266,7 +280,7 @@ async function isPending(transactionHash) {
     return await web3.eth.getTransactionReceipt(transactionHash) == null;
 }
 
-//useful structure
+// Update an array in pool_info by index
 async function updatePoolInfo(i) {
     try{
         console.log('updating...');
@@ -293,7 +307,6 @@ async function updatePoolInfo(i) {
 }
 
 async function getPoolInfo(input_token_address, out_token_addresses, index){
-    console.log(index);
 
         var pool_address = await pancakeFactory.methods.getPair(input_token_address, out_token_addresses[index]).call();
         var pool_contract = new web3.eth.Contract(PANCAKE_POOL_ABI, pool_address);
@@ -325,29 +338,23 @@ async function getAmountOut(aIn, reserveA, reserveB) {
 }
 
 //-----------------EXTRA FUNCTIONS getPairAddress of tokenA-tokenB pool offline.
-const getUniv2PairAddress = (tokenA, tokenB) => {
-    const [token0, token1] = sortTokens(tokenA, tokenB);
-  
-    const salt = ethers.utils.keccak256(token0 + token1.replace("0x", ""));
-    const address = ethers.utils.getCreate2Address(
-      "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", // Factory address (contract creator)
-      salt,
-      "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f" // init code hash
-    );
-  
-    return address;
-};
+//const getUniv2PairAddress = (tokenA, tokenB) => {
+//    const [token0, token1] = sortTokens(tokenA, tokenB);
+//  
+//    const salt = ethers.utils.keccak256(token0 + token1.replace("0x", ""));
+//    const address = ethers.utils.getCreate2Address(
+//      "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", // Factory address (contract creator)
+//      salt,
+//      "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f" // init code hash
+//    );
+//  
+//    return address;
+//};
   
 const execute = async() =>{
 start().then(() => {
-    console.log('main...');
+    console.log('[INFO] Starting ...');
     main()
 });
 }
 execute();
-
-
-
-//do not use the router, use swap
-
-
