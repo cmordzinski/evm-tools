@@ -23,7 +23,6 @@ const {
     MINPROFIT,
     ONE_GWEI
     } = require('./constants.js');
-const { logger } = require('@ethersproject/wordlists');
 
 // Vars
 var pool_info = [];
