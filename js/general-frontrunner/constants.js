@@ -2,7 +2,7 @@ require('dotenv').config();
 const winston = require('winston');
 
 // Logger
-const logger = winston.createLogger({
+const LOGGER = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
         winston.format.timestamp(),
@@ -14,7 +14,7 @@ const logger = winston.createLogger({
 });
 
 if (process.env.NODE_ENV != 'PRODUCTION') {
-    logger.add(new winston.transports.Console({
+    LOGGER.add(new winston.transports.Console({
         format: winston.format.cli(),
     }));
 }
@@ -53,9 +53,10 @@ const OUTPUT_TOKEN_ADDRESSES = [
 //can the bot afford to spend on gas and slippage.
 
 module.exports = {
-    logger,
-	PANCAKE_ROUTER_ADDRESS,
-	PANCAKE_FACTORY_ADDRESS,
+    LOGGER,
+
+    PANCAKE_ROUTER_ADDRESS,
+    PANCAKE_FACTORY_ADDRESS,
 
     PANCAKE_ROUTER_ABI,
     PANCAKE_FACTORY_ABI,
