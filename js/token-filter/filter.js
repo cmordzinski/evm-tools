@@ -1,6 +1,7 @@
 var _ = require('lodash');
 const {ethers} = require('ethers')
 var fs = require('fs');
+const winston = require('winston');
 
 //----- ABI of the UniswapFlashQuery.sol contract that we use to fetch all pairs from a certain exchange
 const UNISWAP_QUERY_ABI = [{
@@ -204,6 +205,20 @@ const tpContract = new ethers.utils.Interface([{
 const bnbReserveAddress = '0x0000000000000000000000000000000000000000';
 //-------------
 
+// Create a logger
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json(),
+    ),
+    transports: [
+        new winston.transports.File({filename: 'logs/token-filter.log'}),
+		new winston.transports.Console({format: winston.format.cli()}),
+    ],
+});
+
+
 let pool_infoo = [];
 let tokenss = [];
 
@@ -211,13 +226,13 @@ let pool_info = [];
 let tokens;
 
 const provider = new ethers.providers.WebSocketProvider("wss://ws-nd-654-414-664.p2pify.com/ae9f2cd14774753ae3150be26252ebbb");
-console.log("connected")
+logger.info("connected")
 
 
 // The contract called here is the UniswapFlashQuery contract
 const getPairs = async () => {
     const uniswapQuery = new ethers.Contract("0xAe197E1C310AEC1c254bCB7998cdFd64541c9eef", UNISWAP_QUERY_ABI, provider);
-    console.log("connected to contract")
+    logger.info("connected to contract")
     for (let i = 50000; i < 100000; i += UNISWAP_BATCH_SIZE) {
         //this will get the first 100 000 pairs in pancakeswap in batches of 500
         //then you should run the bot again using  for (let i = 50000; i < 100000; i += UNISWAP_BATCH_SIZE) to include the pairs from index 50 000 to 100 000
@@ -269,13 +284,13 @@ const getPairs = async () => {
 
         }
         if (pairs.length < UNISWAP_BATCH_SIZE) {
-            console.log("breaking...")
+            logger.info("breaking...")
             break
         }
     }
 
-    console.log('totalPairs fetched: ' + tokenss.length)
-    console.log('time to filter some shi...')
+    logger.info('totalPairs fetched: ' + tokenss.length)
+    logger.info('time to filter some shi...')
 
     for (let i = 0; i < pool_infoo.length; i++) {
         try {
@@ -308,7 +323,7 @@ const getPairs = async () => {
 
 
     //HERE we will filter for tokens that have a TAX or HONEYPOT and then will filter again if the busd reserve is less than 1000 busd
-    console.log("TESTING [tokenToleranceCheck]");
+    logger.info("TESTING [tokenToleranceCheck]");
 
     const ethIn = ethers.utils.parseUnits("1", "ether")
     //const tolerance = ethers.utils.parseUnits(data.tolerance, "ether") 
@@ -318,8 +333,8 @@ const getPairs = async () => {
     ]
 
     for (let i = 0; i < tokens.length; i++) {
-        console.log("processing token in tokens list at index:" + i);
-        console.log(tokens[i]);
+        logger.info("processing token in tokens list at index:" + i);
+        logger.info(tokens[i]);
         var processedData = tpContract.encodeFunctionData( //we have a 2% (0.02) fee tolerance because we're accounting for the dex Fee
             'tokenToleranceCheck', [tokens[i], ethIn, ethers.utils.parseUnits("0.01", "ether")] //token address
         );
@@ -357,13 +372,13 @@ const getPairs = async () => {
 
     pool.forEach(value => writeStream.write(`${JSON.stringify(value)}\n)`));
     writeStream.on('finish', () => {
-        console.log(`wrote all the array data to file ${pathName}`);
+        logger.info(`wrote all the array data to file ${pathName}`);
     });
     writeStream.on('error', (err) => {
-        console.error(`There is an error writing the file ${pathName} => ${err}`)
+        logger.error(`There is an error writing the file ${pathName} => ${err}`)
     });
     writeStream.end();
-    console.log(tokens.length);
+    logger.info(tokens.length);
 
 }
 getPairs();

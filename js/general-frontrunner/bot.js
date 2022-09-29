@@ -4,7 +4,7 @@ var Web3 = require('web3');
 var abiDecoder = require('abi-decoder');
 var _ = require('lodash');
 var BigNumber = require('big-number');
-var winston = require('winston');
+const winston = require('winston');
 
 // Constants
 const {
