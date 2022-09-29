@@ -4,10 +4,10 @@ var Web3 = require('web3');
 var abiDecoder = require('abi-decoder');
 var _ = require('lodash');
 var BigNumber = require('big-number');
-const winston = require('winston');
 
 // Constants
 const {
+    logger,
     PANCAKE_ROUTER_ADDRESS,
     PANCAKE_FACTORY_ADDRESS,
     PANCAKE_ROUTER_ABI,
@@ -47,24 +47,6 @@ abiDecoder.addABI(PANCAKE_ROUTER_ABI);
 // Get a LocalAccount object from the WALLET_PRIVATE_KEY in the .env file
 const user_wallet = web3.eth.accounts.privateKeyToAccount(process.env.WALLET_PRIVATE_KEY);
 
-// Create a logger
-const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.json(),
-    ),
-    transports: [
-        new winston.transports.File({filename: 'logs/road-runner.log'})
-    ],
-});
-
-// If NODE_ENV in .env != 'production', log to console and file
-if (process.env.NODE_ENV != 'PRODUCTION') {
-    logger.add(new winston.transports.Console({
-        format: winston.format.cli(),
-    }));
-}
 
 // Start
 const start = async() => {
