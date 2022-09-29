@@ -26,6 +26,6 @@ Mass filter token pairs on an exchange
 <pre>
 cd token-filter
 npm install
-node pairs.js
+node filter.js
 cat filter.txt - this is where filtered pairs that make the cut will be written to
 </pre>
