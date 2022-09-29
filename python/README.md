@@ -5,7 +5,7 @@ Collection of python tools to interact with EVM compatible blockchains. The code
 
 Prerequisites:
  - You must be using a version of Python >= 3.9.5
- - You must create a venv in the main evm-tools directory and it must be named 'venv'
+ - You must create a venv in the main evm-tools/python directory and it must be named 'venv'
  - You must install all dependencies from requirements.txt into the venv
 
 <pre>
