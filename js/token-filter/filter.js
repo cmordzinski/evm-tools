@@ -11,7 +11,7 @@ const {
     TP_CONTRACT_ADDRESS,
     TP_CONTRACT,
     BNB_RESERVE_ADDRESS,
-    } = require('./constants.js');
+} = require('./constants.js');
 
 const provider = new ethers.providers.WebSocketProvider("wss://ws-nd-654-414-664.p2pify.com/ae9f2cd14774753ae3150be26252ebbb");
 LOGGER.info("connected to RPC")
