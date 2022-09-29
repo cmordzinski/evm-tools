@@ -1,4 +1,4 @@
-# python
+# Python
 
 Collection of python tools to interact with EVM compatible blockchains. The code in this repository primarily exists for learning/experimenting purposes.
 <p>
