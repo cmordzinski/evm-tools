@@ -10,14 +10,14 @@ Prerequisites:
 ## general-frontrunner
 General frontrunner bot to attempt to frontrun transactions with large amounts of slippage.
  - For additional info, look at the README file in the general-frontrunner subdirectory.
- - This bot uses a OUTPUT_TOKEN_ADDRESSES in constants.js to determine which tokens its willing to attempt to frontrun tx for
-   - This is done because there are lots of honeypots, tokens with buy/sell taxes, tokens with no liquidity, etc that we want to avoid
-   - Likely, you will want to use the token-filter code to assist in generating a list of tokens
+ - This bot will only attempt to frontrun swaps of tokens in OUTPUT_TOKEN_ADDRESSES in constants.js
+   - This is done because there are lots of honeypots, tokens with high buy/sell taxes, tokens with no liquidity, etc that we want to avoid
+   - You will want to use the token-filter code to assist in generating a list of tokens
 <pre>
 cd general-frontrunner
 npm install
-node approveTokens.js - this will approve all the tokens in OUTPUT_TOKEN_ADDRESSES for swaps
-node bot.js - this will run the bot to attempt to frontrun tx of tokens in OUTPUT_TOKEN_ADDRESSES where profitable
+node approveTokens.js - this will approve all the tokens in OUTPUT_TOKEN_ADDRESSES for swaps, make sure you have enough gas
+node bot.js - this will run the bot to attempt to frontrun pending tx of tokens in OUTPUT_TOKEN_ADDRESSES when profitable
 </pre>
 
 ## token-filter
