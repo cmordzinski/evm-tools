@@ -2,7 +2,7 @@ const {ethers} = require('ethers')
 const winston = require('winston');
 
 // Logger
-const logger = winston.createLogger({
+const LOGGER = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
         winston.format.timestamp(),
@@ -43,8 +43,8 @@ const UNISWAP_BATCH_SIZE = 500;
 //-----
 
 //----- Contract info for toleranceCheck.sol that checks for tax/honeypot 
-const tpContactAddress = '0x1298E04B39C8B5D79109F2e90079122C382885Ff'
-const tpContract = new ethers.utils.Interface([{
+const TP_CONTRACT_ADDRESS = '0x1298E04B39C8B5D79109F2e90079122C382885Ff'
+const TP_CONTRACT = new ethers.utils.Interface([{
         "inputs": [],
         "stateMutability": "nonpayable",
         "type": "constructor"
@@ -212,14 +212,16 @@ const tpContract = new ethers.utils.Interface([{
         "type": "receive"
     }
 ]);
-const bnbReserveAddress = '0x0000000000000000000000000000000000000000';
+// This is used when we simulate the tx to check for Honeypots/Tax. Simulating tx requires a "from" address with enough BNB, but doesnt
+// actually cost anything, so we just pass the BNB burn address
+const BNB_RESERVE_ADDRESS = '0x0000000000000000000000000000000000000000';
 //-------------
 
 module.exports = {
-        logger,
+        LOGGER,
         UNISWAP_QUERY_ABI,
         UNISWAP_BATCH_SIZE,
-        tpContactAddress,
-        tpContract,
-        bnbReserveAddress,
+        TP_CONTRACT_ADDRESS,
+        TP_CONTRACT,
+        BNB_RESERVE_ADDRESS,
 };

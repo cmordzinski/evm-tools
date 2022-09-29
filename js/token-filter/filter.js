@@ -5,16 +5,16 @@ const {ethers} = require('ethers')
 
 // Constants
 const {
-    logger,
+    LOGGER,
     UNISWAP_QUERY_ABI,
     UNISWAP_BATCH_SIZE,
-    tpContactAddress,
-    tpContract,
-    bnbReserveAddress,
+    TP_CONTRACT_ADDRESS,
+    TP_CONTRACT,
+    BNB_RESERVE_ADDRESS,
     } = require('./constants.js');
 
 const provider = new ethers.providers.WebSocketProvider("wss://ws-nd-654-414-664.p2pify.com/ae9f2cd14774753ae3150be26252ebbb");
-logger.info("connected to RPC")
+LOGGER.info("connected to RPC")
 
 // Vars
 let pool_infoo = [];
@@ -26,7 +26,7 @@ let tokens;
 // The contract called here is the UniswapFlashQuery contract
 const getPairs = async () => {
     const uniswapQuery = new ethers.Contract("0xAe197E1C310AEC1c254bCB7998cdFd64541c9eef", UNISWAP_QUERY_ABI, provider);
-    logger.info("connected to contract")
+    LOGGER.info("connected to contract")
     for (let i = 50000; i < 100000; i += UNISWAP_BATCH_SIZE) {
         //this will get the first 100 000 pairs in pancakeswap in batches of 500
         //then you should run the bot again using  for (let i = 50000; i < 100000; i += UNISWAP_BATCH_SIZE) to include the pairs from index 50 000 to 100 000
@@ -78,13 +78,13 @@ const getPairs = async () => {
 
         }
         if (pairs.length < UNISWAP_BATCH_SIZE) {
-            logger.info("breaking...")
+            LOGGER.info("breaking...")
             break
         }
     }
 
-    logger.info('totalPairs fetched: ' + tokenss.length)
-    logger.info('time to filter some shi...')
+    LOGGER.info('totalPairs fetched: ' + tokenss.length)
+    LOGGER.info('time to filter some shi...')
 
     for (let i = 0; i < pool_infoo.length; i++) {
         try {
@@ -117,7 +117,7 @@ const getPairs = async () => {
 
 
     //HERE we will filter for tokens that have a TAX or HONEYPOT and then will filter again if the busd reserve is less than 1000 busd
-    logger.info("TESTING [tokenToleranceCheck]");
+    LOGGER.info("TESTING [tokenToleranceCheck]");
 
     const ethIn = ethers.utils.parseUnits("1", "ether")
     //const tolerance = ethers.utils.parseUnits(data.tolerance, "ether") 
@@ -127,20 +127,20 @@ const getPairs = async () => {
     ]
 
     for (let i = 0; i < tokens.length; i++) {
-        logger.info("processing token in tokens list at index:" + i);
-        logger.info(tokens[i]);
-        var processedData = tpContract.encodeFunctionData( //we have a 2% (0.02) fee tolerance because we're accounting for the dex Fee
+        LOGGER.info("processing token in tokens list at index:" + i);
+        LOGGER.info(tokens[i]);
+        var processedData = TP_CONTRACT.encodeFunctionData( //we have a 1% (0.01) fee tolerance because we're accounting for the dex Fee
             'tokenToleranceCheck', [tokens[i], ethIn, ethers.utils.parseUnits("0.01", "ether")] //token address
         );
         var checkTxn = {
-            from: bnbReserveAddress,
-            to: tpContactAddress,
+            from: BNB_RESERVE_ADDRESS,
+            to: TP_CONTRACT_ADDRESS,
             data: processedData,
             value: ethIn,
             gasPrice: ethers.BigNumber.from(13),
             gasLimit: ethers.BigNumber.from(6500000),
         }
-        //we check token fee whitout wasting any gas: .call() only simulates a tx and we pretend to send from an address that has enough bnb (bnbReserveAddress)
+        //we check token fee whitout wasting any gas: .call() only simulates a tx and we pretend to send from an address that has enough bnb (BNB_RESERVE_ADDRESS)
         try {
             await provider.call(checkTxn) //if the token has a tax or is honeypot this will throw an error
             const pairContract = new ethers.Contract(pool_info[i].busdPair, pairABI, provider);
@@ -166,13 +166,13 @@ const getPairs = async () => {
 
     pool.forEach(value => writeStream.write(`${JSON.stringify(value)}\n)`));
     writeStream.on('finish', () => {
-        logger.info(`wrote all the array data to file ${pathName}`);
+        LOGGER.info(`wrote all the array data to file ${pathName}`);
     });
     writeStream.on('error', (err) => {
-        logger.error(`There is an error writing the file ${pathName} => ${err}`)
+        LOGGER.error(`There is an error writing the file ${pathName} => ${err}`)
     });
     writeStream.end();
-    logger.info(tokens.length);
+    LOGGER.info(tokens.length);
 
 }
 getPairs();
