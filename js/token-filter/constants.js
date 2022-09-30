@@ -13,6 +13,10 @@ const LOGGER = winston.createLogger({
 		new winston.transports.Console({format: winston.format.cli()}),
     ],
 });
+ 
+const PAIR_CONTRACT_ABI = [
+    'function getReserves() public view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast)',
+];
 
 //----- ABI of the UniswapFlashQuery.sol contract that we use to fetch all pairs from a certain exchange
 const UNISWAP_QUERY_ABI = [{
@@ -219,6 +223,7 @@ const BNB_RESERVE_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 module.exports = {
         LOGGER,
+        PAIR_CONTRACT_ABI,
         UNISWAP_QUERY_ABI,
         UNISWAP_BATCH_SIZE,
         TP_CONTRACT_ADDRESS,
