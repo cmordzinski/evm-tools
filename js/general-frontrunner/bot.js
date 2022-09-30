@@ -1,20 +1,19 @@
-// CommonJS imports
 require('dotenv').config();
-var Web3 = require('web3');
-var abiDecoder = require('abi-decoder');
-var _ = require('lodash');
-var BigNumber = require('big-number');
+const Web3 = require('web3');
+const abiDecoder = require('abi-decoder');
+const _ = require('lodash');
+const BigNumber = require('big-number');
+const logger = require("./logger.js");
 
-// Constants
 const {
-    LOGGER,
     PANCAKE_ROUTER_ADDRESS,
     PANCAKE_FACTORY_ADDRESS,
     PANCAKE_ROUTER_ABI,
     PANCAKE_FACTORY_ABI,
     PANCAKE_POOL_ABI,
-    HTTP_PROVIDER_LINK,
-    WEBSOCKET_PROVIDER_LINK,
+    WALLET_PRIVATE_KEY,
+    RPC_URL,
+    RPC_URL_WSS,
     MAX_AMOUNT,
     SLIPPAGE,
     GASPRICE,
@@ -24,45 +23,42 @@ const {
     OUTPUT_TOKEN_ADDRESSES,
 } = require('./constants.js');
 
-// Vars
-var pool_info = [];
-let i;
-var amount;
 var web3;
 var web3Ws;
 var pancakeRouter;
 var pancakeFactory;
-var buyNonce;
-var sellNonce
-var subscription;
-var attack_started = false;
 
 // Define web3, web3Ws, pancakeRouter, pancakeFactory objects
-web3 = new Web3(new Web3.providers.HttpProvider(HTTP_PROVIDER_LINK));
-web3Ws = new Web3(new Web3.providers.WebsocketProvider(WEBSOCKET_PROVIDER_LINK));
+web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL));
+web3Ws = new Web3(new Web3.providers.WebsocketProvider(RPC_URL_WSS));
 pancakeRouter = new web3.eth.Contract(PANCAKE_ROUTER_ABI, PANCAKE_ROUTER_ADDRESS);
 pancakeFactory = new web3.eth.Contract(PANCAKE_FACTORY_ABI, PANCAKE_FACTORY_ADDRESS);
 abiDecoder.addABI(PANCAKE_ROUTER_ABI);
 
-// Get a LocalAccount object from the WALLET_PRIVATE_KEY in the .env file
-const user_wallet = web3.eth.accounts.privateKeyToAccount(process.env.WALLET_PRIVATE_KEY);
+// Get a LocalAccount object using the WALLET_PRIVATE_KEY
+const user_wallet = web3.eth.accounts.privateKeyToAccount(WALLET_PRIVATE_KEY);
 
+var buyNonce;
+var sellNonce
+var pool_info = [];
+let i;
+var amount;
+var subscription;
+var attack_started = false;
 
 // Start
 const start = async () => {
-    LOGGER.info('gathering preliminary information')
+    logger.info('gathering preliminary information')
     buyNonce = await web3.eth.getTransactionCount(user_wallet.address);
     sellNonce = buyNonce + 1
-    LOGGER.info(`buy nonce: ${buyNonce} - sell nonce: ${sellNonce}`);
+    logger.info(`buy nonce: ${buyNonce} - sell nonce: ${sellNonce}`);
     const len_wl_token_list = OUTPUT_TOKEN_ADDRESSES.length
-    LOGGER.info(`${len_wl_token_list} tokens found in OUTPUT_TOKEN_ADDRESSES`);
+    logger.info(`${len_wl_token_list} tokens found in OUTPUT_TOKEN_ADDRESSES`);
     for (var index = 0; index < len_wl_token_list; index++) {
-        LOGGER.info(`getting pool info for ${index+1}/${len_wl_token_list} tokens`);
+        logger.info(`getting pool info for ${index+1}/${len_wl_token_list} tokens`);
         await getPoolInfo(INPUT_TOKEN_ADDRESS, OUTPUT_TOKEN_ADDRESSES, index);
     }
-    LOGGER.info('getting pool info for tokens in OUTPUT_TOKEN_ADDRESSES complete');
-
-
+    logger.info('getting pool info for tokens in OUTPUT_TOKEN_ADDRESSES complete');
 }
 
 async function main() {
@@ -73,9 +69,9 @@ async function main() {
                 topic: "transfers",
                 address: user_wallet.address
             }));
-            LOGGER.info('connected');
+            logger.info('connected');
         }
-        LOGGER.info('subscribing to pendingTransaction events');
+        logger.info('subscribing to pendingTransaction events');
         subscription = web3Ws.eth.subscribe('pendingTransactions', function(error, result) {}).on("data", async function(transactionHash) {
             let transaction = await web3.eth.getTransaction(transactionHash);
             if (transaction != null && transaction['to'] == PANCAKE_ROUTER_ADDRESS) {
@@ -83,7 +79,7 @@ async function main() {
             }
         })
     } catch (error) {
-        LOGGER.error(`failed to fetch mempool data: ${error}`);
+        logger.error(`failed to fetch mempool data: ${error}`);
         process.exit();
     }
 }
@@ -103,7 +99,7 @@ async function handleTransaction(transaction, out_token_addresses, user_wallet) 
         var outputtoken = await getAmountOut(estimatedInput, pool_info[i].input_volumn, pool_info[i].output_volumn);
         swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_addresses[i], user_wallet, transaction);
         swap(gasPrice, gasLimit, outputtoken, 0, 1, out_token_addresses[i], user_wallet, transaction);
-        LOGGER.info('attempted frontrun - txHash: ' + transaction['hash']);
+        logger.info('attempted frontrun - txHash: ' + transaction['hash']);
         attack_started = false;
         return execute();
     }
@@ -115,16 +111,16 @@ async function triggersFrontRun(transaction, out_token_addresses) {
     if (parseInt(transaction['gasPrice']) / 10 ** 9 > 10 || parseInt(transaction['gasPrice']) / 10 ** 9 < 3) {
         return false;
     }
-    LOGGER.info('txHash: ' + transaction['hash']);
-    LOGGER.info('gasPrice: ' + transaction['gasPrice'] / 10 ** 9);
+    logger.info('txHash: ' + transaction['hash']);
+    logger.info('gasPrice: ' + transaction['gasPrice'] / 10 ** 9);
     let data = parseTx(transaction['input']);
     let method = data[0];
     let params = data[1];
     if (method != 'swapExactETHForTokens' && method != 'swapExactTokensForTokens') {
-        LOGGER.info('method called is not swapExactEthForTokens or swapExactTokensForTokens, ignoring.');
+        logger.info('method called is not swapExactEthForTokens or swapExactTokensForTokens, ignoring.');
         return false;
     } else if (method == 'swapExactETHForTokens') {
-        LOGGER.info('method:' + method);
+        logger.info('method:' + method);
         let path = params[1].value;
         let in_token_addr = path[0];
         let out_token_addr = path[path.length - 1];
@@ -133,8 +129,8 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         if (_.includes(out_token_addresses, out_token_addr)) {
             i = _.indexOf(out_token_addresses, out_token_addr)
         } else {
-            LOGGER.error('token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
-            LOGGER.error('token address: ' + out_token_addr);
+            logger.error('token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
+            logger.error('token address: ' + out_token_addr);
             return false;
         }
         //reserves have to be divided by decimals
@@ -153,18 +149,18 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         const afterSellY = K / (secondnewX + tokensReceived);
         const ethReceived = (y + a + (b / 1.0025) - afterSellY);
         const profit = (ethReceived - a) - (0.0025) * (ethReceived + a)
-        LOGGER.info(`estimated profit is: ${profit}`);
+        logger.info(`estimated profit is: ${profit}`);
         if (profit > MINPROFIT && a > 0) {
             amount = a;
             attack_started = true;
-            LOGGER.info("would have frontran")
+            logger.info("would have frontran")
             return false;
         } else {
-            LOGGER.info('estimated profit too low, ignoring.');
+            logger.info('estimated profit too low, ignoring.');
             return false;
         }
     } else if (method == 'swapExactTokensForTokens') {
-        LOGGER.info('method:' + method);
+        logger.info('method:' + method);
         let path = params[2].value;
         let in_token_addr = path[path.length - 2];
         let out_token_addr = path[path.length - 1];
@@ -173,12 +169,12 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         if (_.includes(out_token_addresses, out_token_addr)) {
             i = _.indexOf(out_token_addresses, out_token_addr)
         } else {
-            LOGGER.error('token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
-            LOGGER.error('token address: ' + out_token_addr);
+            logger.error('token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
+            logger.error('token address: ' + out_token_addr);
             return false;
         }
         if (in_token_addr != INPUT_TOKEN_ADDRESS) {
-            LOGGER.info('token paired to swap is not INPUT_TOKEN_ADDRESS, ignoring.');
+            logger.info('token paired to swap is not INPUT_TOKEN_ADDRESS, ignoring.');
             return false;
         }
         let b = params[0].value / 10 ** 18;
@@ -196,18 +192,18 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         const afterSellY = K / (secondnewX + tokensReceived);
         const ethReceived = (y + a + (b / 1.0025) - afterSellY);
         const profit = (ethReceived - a) - (0.0025) * (ethReceived + a)
-        LOGGER.info(`estimated profit is: ${profit}`);
+        logger.info(`estimated profit is: ${profit}`);
         if (profit > MINPROFIT && a > 0) {
             amount = a;
             attack_started = true;
-            LOGGER.info("would have frontran")
+            logger.info("would have frontran")
             return false;
         } else {
-            LOGGER.info('estimated profit too low, skipping.');
+            logger.info('estimated profit too low, skipping.');
             return false;
         }
     }
-    LOGGER.info('skipping due to implicit ignore')
+    logger.info('skipping due to implicit ignore')
     return false;
 }
 
@@ -256,7 +252,7 @@ async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token
     if (trade == 0) {
         let is_pending = await isPending(transaction['hash']);
         if (!is_pending) {
-            LOGGER.info("the transaction you want to attack has already been completed!!!");
+            logger.info("the transaction you want to attack has already been completed!!!");
             process.exit();
         } else {
             web3.eth.sendSignedTransaction(signedTx.rawTransaction)
@@ -304,13 +300,11 @@ async function getPoolInfo(input_token_address, out_token_addresses, index) {
         'input_volumn': bnb_balance,
         'output_volumn': token_balance
     }
-
-
 }
 
 async function updatePoolInfo(i) {
     try {
-        LOGGER.info(`updating pool_info at index ${i}`);
+        logger.info(`updating pool_info at index ${i}`);
         var reserves = await pool_info[i].contract.methods.getReserves().call();
 
         if (pool_info[i].forward) {
@@ -326,7 +320,7 @@ async function updatePoolInfo(i) {
 
     } catch (error) {
 
-        LOGGER.error('failed fo get pair info');
+        logger.error('failed fo get pair info');
 
         return false;
     }
@@ -348,7 +342,7 @@ async function updatePoolInfo(i) {
 
 const execute = async () => {
     start().then(() => {
-        LOGGER.info('starting ...');
+        logger.info('starting ...');
         main()
     });
 }

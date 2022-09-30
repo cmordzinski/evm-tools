@@ -1,5 +1,5 @@
-var _ = require('lodash');
-var fs = require('fs');
+const _ = require('lodash');
+const fs = require('fs');
 const {ethers} = require('ethers')
 
 const {
