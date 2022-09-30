@@ -20,10 +20,7 @@ const getPairs = async () => {
     LOGGER.info("connected to RPC")
     const uniswapQuery = new ethers.Contract("0xAe197E1C310AEC1c254bCB7998cdFd64541c9eef", UNISWAP_QUERY_ABI, provider);
     LOGGER.info("connected to contract")
-    // this will get the first 50 000 pairs in pancakeswap in batches of 500
-    // then you should run the bot again using  for (let i = 50000; i < 100000; i += UNISWAP_BATCH_SIZE) to include the pairs from index 50 000 to 100 000
-    // we cannot make a single call from i = 0  to i = 1 100 000 (total pairs on pancakeswap) as this would be way too long.
-    // so we fetch 500 pairs in each loop until we get to 50 000. then we start the bot again starting from index 50 000  to 100 000 and so on...
+    // this will get the first 50 000 pairs in batches of 500
     for (let i = 0; i < 50000; i += UNISWAP_BATCH_SIZE) {
         const pairs = (await uniswapQuery.functions.getPairsByIndexRange("0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73", i, i + UNISWAP_BATCH_SIZE))[0];
         // each pair item is formatted as: [token1,token2,pairAddress]
