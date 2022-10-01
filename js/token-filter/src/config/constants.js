@@ -10,7 +10,7 @@ const LOGGER = winston.createLogger({
     ),
     transports: [
         new winston.transports.File({filename: '../logs/token-filter.log'}),
-		new winston.transports.Console({format: winston.format.cli()}),
+	new winston.transports.Console({format: winston.format.cli()}),
     ],
 });
 
