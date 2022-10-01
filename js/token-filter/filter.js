@@ -4,25 +4,30 @@ const {ethers} = require('ethers')
 
 const {
     LOGGER,
-    PAIR_CONTRACT_ABI,
+    RPC_URL_WSS,
+    WBNB_ADDRESS,
+    BUSD_ADDRESS,
+    PANCAKE_FACTORY_ADDRESS,
+    UNISWAP_QUERY_CONTRACT_ADDRESS,
     UNISWAP_QUERY_ABI,
     UNISWAP_BATCH_SIZE,
     TP_CONTRACT_ADDRESS,
     TP_CONTRACT,
     BNB_RESERVE_ADDRESS,
+//   PAIR_CONTRACT_ABI,
 } = require('./constants.js');
 
 // The contract called here is the UniswapFlashQuery contract
 const getPairs = async () => {   
     let allPoolInfo = [];
     let allTokens = [];
-    const provider = new ethers.providers.WebSocketProvider("wss://ws-nd-654-414-664.p2pify.com/ae9f2cd14774753ae3150be26252ebbb");
+    const provider = new ethers.providers.WebSocketProvider(RPC_URL_WSS);
     LOGGER.info("connected to RPC")
-    const uniswapQuery = new ethers.Contract("0xAe197E1C310AEC1c254bCB7998cdFd64541c9eef", UNISWAP_QUERY_ABI, provider);
+    const uniswapQuery = new ethers.Contract(UNISWAP_QUERY_CONTRACT_ADDRESS, UNISWAP_QUERY_ABI, provider);
     LOGGER.info("connected to contract")
     // this will get the first 50 000 pairs in batches of 500
-    for (let i = 0; i < 50000; i += UNISWAP_BATCH_SIZE) {
-        const pairs = (await uniswapQuery.functions.getPairsByIndexRange("0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73", i, i + UNISWAP_BATCH_SIZE))[0];
+    for (let i = 0; i < 1000; i += UNISWAP_BATCH_SIZE) {
+        const pairs = (await uniswapQuery.functions.getPairsByIndexRange(PANCAKE_FACTORY_ADDRESS, i, i + UNISWAP_BATCH_SIZE))[0];
         // each pair item is formatted as: [token1,token2,pairAddress]
         // for each pair in pairs we check whether token2 is busd or weth
         const L = allTokens.length //will be 0 in first run then 500, then 1000...
@@ -33,35 +38,33 @@ const getPairs = async () => {
             let pairAddr;
 
             // we check whether token2 (i.e pair[1]) is busd or weth because we are only focusing on pairs that contain either of these
-            if (pair[1] === '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56') { // if token2 is BUSD...
+            if (pair[1] === WBNB_ADDRESS) { // if token2 is WBNB...
                 pairAddr = pair[2];
                 // if token has never been seen before we add it to allTokens and create a new allPoolInfo item
                 if (!allTokens.includes(tokenAddress)) {
                     allTokens[L + pairIndex] = tokenAddress;
                     allPoolInfo[L + pairIndex] = {
                         'tokenAddress': tokenAddress,
-                        'busdPair': pairAddr,
-                        'wethPair': ''
+                        'busdPair': '',
+                        'wethPair': pairAddr
                     }
                 } else { //else if token has been seen before
                     let n = _.indexOf(allTokens, tokenAddress)
                     allPoolInfo[n].busdPair = pairAddr;
                 }
-
-            } else if (pair[1] === '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c') { //if token2 is WBNB...
+            } else if (pair[1] === BUSD_ADDRESS) { //if token2 is BUSD...
                 pairAddr = pair[2];
                 if (!allTokens.includes(tokenAddress)) {
                     allTokens[L + pairIndex] = tokenAddress
                     allPoolInfo[L + pairIndex] = {
                         'tokenAddress': tokenAddress,
-                        'busdPair': '',
-                        'wethPair': pairAddr
+                        'busdPair': pairAddr,
+                        'wethPair': ''
                     }
                 } else {
                     let n = _.indexOf(allTokens, tokenAddress)
                     allPoolInfo[n].wethPair = pairAddr;
                 }
-
             } else {
                 continue;
             }
@@ -74,7 +77,7 @@ const getPairs = async () => {
     }
 
     LOGGER.info(`totalPairs fetched: ${allTokens.length}`)
-    LOGGER.info('filtering honeypots, buy/sell tax, BUSD reserves < 1000')
+    LOGGER.info('filtering out honeypots, tokens with high buy/sell tax')
     
     // this is an optional trick to ensure that there is both a busd and weth pair
     // if the token is missing a busd or weth pair we set the item to null so that we can eliminate it later
@@ -130,13 +133,15 @@ const getPairs = async () => {
         //we check token fee whithout using any gas: .call() only simulates a tx and we pretend to send from an address that has enough bnb (BNB_RESERVE_ADDRESS)
         try {
             await provider.call(checkTxn) //if the token has a tax or is honeypot this will throw an error
-            const pairContract = new ethers.Contract(poolInfo[i].busdPair, PAIR_CONTRACT_ABI, provider);
-            let reserves = await pairContract.getReserves(); //if this doesnt throw an error we proceed to check minimum reserves amount
-            if (reserves._reserve1 / (10 ** 18) > 1000) {
-                output[i] = [poolInfo[i].tokenAddress, poolInfo[i].busdPair, poolInfo[i].wethPair]; //if enough reserves we create a output item with [token, busdPair, wethPair] addresses
-            } else {
-                output[i] = "low_busd_reserves"; //else you will see a value indicating that we ignored this pair because of not enough reserves
-            }
+            // --- this can be used to check minimum busd reserves, but many pairs dont have this function and error
+            //const pairContract = new ethers.Contract(poolInfo[i].busdPair, PAIR_CONTRACT_ABI, provider);
+            //let reserves = await pairContract.getReserves(); //if this doesnt throw an error we proceed to check minimum reserves amount
+            //if (reserves._reserve1 / (10 ** 18) > 1000) {
+            //output[i] = [poolInfo[i].tokenAddress, poolInfo[i].busdPair, poolInfo[i].wethPair]; //if enough reserves we create a output item with [token, busdPair, wethPair] addresses
+            output[i] = [poolInfo[i].tokenAddress+",",];
+            //} else {
+            //    output[i] = "low_busd_reserves"; //else you will see a value indicating that we ignored this pair because of not enough reserves
+            //}
         } catch (error) { //if toleranceCheck fails you will see the value indicating that we ignored this pair because of tax/honeypot
             output[i] = "tax_or_honeypot";
         };
@@ -146,7 +151,7 @@ const getPairs = async () => {
     const writeStream = fs.createWriteStream('./output/output.txt');
     const pathName = writeStream.path;
     
-    output.forEach(value => writeStream.write(`${JSON.stringify(value)}\n)`));
+    output.forEach(value => writeStream.write(value+'\n'));
     writeStream.on('finish', () => {
         LOGGER.info(`wrote all the array data to file ${pathName}`);
     });
@@ -155,6 +160,5 @@ const getPairs = async () => {
     });
     writeStream.end();
     LOGGER.info(tokens.length);
-
 }
 getPairs();
