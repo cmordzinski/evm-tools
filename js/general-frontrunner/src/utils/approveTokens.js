@@ -19,9 +19,6 @@ const start = async () => {
     }
 }
 
-
-
-
 const approveIn = async (tokenIn) => {
     const tokenApprove = new ethers.Contract(
         tokenIn,
@@ -53,5 +50,4 @@ const approveIn = async (tokenIn) => {
     }
 
 }
-
 start();

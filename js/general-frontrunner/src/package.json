@@ -2,8 +2,9 @@
   "name": "road-runner",
   "version": "1.0.0",
   "description": "uniswapv2 general front-runner",
-  "main": "bot.js",
+  "main": "app.js",
   "scripts": {
+    "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "dokwon",

@@ -3,7 +3,7 @@ const Web3 = require('web3');
 const abiDecoder = require('abi-decoder');
 const _ = require('lodash');
 const BigNumber = require('big-number');
-const logger = require("./logger.js");
+const logger = require("./utils/logger.js");
 
 const {
     PANCAKE_ROUTER_ADDRESS,
@@ -20,8 +20,9 @@ const {
     MINPROFIT,
     ONE_GWEI,
     INPUT_TOKEN_ADDRESS,
-    OUTPUT_TOKEN_ADDRESSES,
-} = require('./constants.js');
+} = require('./config/constants.js');
+
+OUTPUT_TOKEN_ADDRESSES = require("./config/whitelisted_tokens.json");
 
 var web3;
 var web3Ws;

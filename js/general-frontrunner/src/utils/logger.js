@@ -16,7 +16,7 @@ const logger = winston.createLogger({
     ),
     transports: [
         new winston.transports.File({
-            filename: 'logs/road-runner.log'
+            filename: '../logs/road-runner.log'
         })
     ],
 });

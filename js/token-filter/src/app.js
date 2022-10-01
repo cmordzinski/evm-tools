@@ -1,6 +1,6 @@
 const _ = require('lodash');
 const fs = require('fs');
-const {ethers} = require('ethers')
+const {ethers, logger} = require('ethers')
 
 const {
     LOGGER,
@@ -15,7 +15,7 @@ const {
     TP_CONTRACT,
     BNB_RESERVE_ADDRESS,
 //   PAIR_CONTRACT_ABI,
-} = require('./constants.js');
+} = require('./config/constants.js');
 
 // The contract called here is the UniswapFlashQuery contract
 const getPairs = async () => {   
@@ -25,8 +25,8 @@ const getPairs = async () => {
     LOGGER.info("connected to RPC")
     const uniswapQuery = new ethers.Contract(UNISWAP_QUERY_CONTRACT_ADDRESS, UNISWAP_QUERY_ABI, provider);
     LOGGER.info("connected to contract")
-    // this will get the first 50 000 pairs in batches of 500
-    for (let i = 0; i < 1000; i += UNISWAP_BATCH_SIZE) {
+    // this will get the first 10 000 pairs in batches of 500
+    for (let i = 0; i < 10000; i += UNISWAP_BATCH_SIZE) {
         const pairs = (await uniswapQuery.functions.getPairsByIndexRange(PANCAKE_FACTORY_ADDRESS, i, i + UNISWAP_BATCH_SIZE))[0];
         // each pair item is formatted as: [token1,token2,pairAddress]
         // for each pair in pairs we check whether token2 is busd or weth
@@ -138,23 +138,26 @@ const getPairs = async () => {
             //let reserves = await pairContract.getReserves(); //if this doesnt throw an error we proceed to check minimum reserves amount
             //if (reserves._reserve1 / (10 ** 18) > 1000) {
             //output[i] = [poolInfo[i].tokenAddress, poolInfo[i].busdPair, poolInfo[i].wethPair]; //if enough reserves we create a output item with [token, busdPair, wethPair] addresses
-            output[i] = [poolInfo[i].tokenAddress+",",];
+            output[i] = ['"'+poolInfo[i].tokenAddress+'"'+",",];
             //} else {
             //    output[i] = "low_busd_reserves"; //else you will see a value indicating that we ignored this pair because of not enough reserves
             //}
         } catch (error) { //if toleranceCheck fails you will see the value indicating that we ignored this pair because of tax/honeypot
-            output[i] = "tax_or_honeypot";
+            //output[i] = "tax_or_honeypot";
+            LOGGER.error(`honeypot or high tax, ignoring token: ${poolInfo[i].tokenAddress}`)
         };
 
     }
 
-    const writeStream = fs.createWriteStream('./output/output.txt');
+    const writeStream = fs.createWriteStream('../output/whitelisted_tokens.json');
     const pathName = writeStream.path;
     
+    writeStream.write("[\n");
     output.forEach(value => writeStream.write(value+'\n'));
     writeStream.on('finish', () => {
         LOGGER.info(`wrote all the array data to file ${pathName}`);
     });
+    writeStream.write("]\n");
     writeStream.on('error', (err) => {
         LOGGER.error(`There is an error writing the file ${pathName} => ${err}`)
     });

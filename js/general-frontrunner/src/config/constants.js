@@ -27,20 +27,13 @@ const RPC_URL = process.env.RPC_URL;
 const RPC_URL_WSS = process.env.RPC_URL_WSS;
 
 // Constants for 'strategy' to use
+const INPUT_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'; // main token being swapped against in the pool. Typically WETH, BUSD, etc
 const ONE_GWEI = 1e9;
 const MAX_AMOUNT = 20; // Max about of INPUT_TOKEN_ADDRESS to use in one swap.
 const SLIPPAGE = 1.04; // Adjust for volatility in the pool, how much slippage to allow. 
 const GASPRICE = 30; // How much gwei more than the tx being frontran to use. Some frontrunners will use up to 120 gwei
 const MINPROFIT = 0.01; // Minimum profit EXCLUDING gasCost and slippageCost required to send txns
 
-// Constant for the base token being swapped against in the pool. Typically WETH, WBNB, WAVAX, etc
-const INPUT_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
-
-// Tokens we are willing to try to frontrun pending swaps for
-const OUTPUT_TOKEN_ADDRESSES = [
-    '0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82',
-    '0x465707181ACba42Ed01268A33f0507e320a154bD',
-]
 //you can determine how to cnoose slippage, gasPrice, minprofit so that the tradeoff between risk and profit is balanced enough for you
 //note that people will bid higher gas on very profitable trades
 
@@ -66,5 +59,4 @@ module.exports = {
     ONE_GWEI,
 
     INPUT_TOKEN_ADDRESS,
-    OUTPUT_TOKEN_ADDRESSES,
 };
