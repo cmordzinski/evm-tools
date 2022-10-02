@@ -1,9 +1,9 @@
 const _ = require('lodash');
 const fs = require('fs');
-const {ethers, logger} = require('ethers')
+const {ethers} = require('ethers');
+const logger = require("./utils/logger.js");
 
 const {
-    LOGGER,
     RPC_URL_WSS,
     WBNB_ADDRESS,
     BUSD_ADDRESS,
@@ -11,6 +11,8 @@ const {
     UNISWAP_QUERY_CONTRACT_ADDRESS,
     UNISWAP_QUERY_ABI,
     UNISWAP_BATCH_SIZE,
+    UNISWAP_QUERY_START,
+    UNISWAP_QUERY_END,
     TP_CONTRACT_ADDRESS,
     TP_CONTRACT,
     BNB_RESERVE_ADDRESS,
@@ -22,11 +24,11 @@ const getPairs = async () => {
     let allPoolInfo = [];
     let allTokens = [];
     const provider = new ethers.providers.WebSocketProvider(RPC_URL_WSS);
-    LOGGER.info("connected to RPC")
+    logger.info("connected to RPC")
     const uniswapQuery = new ethers.Contract(UNISWAP_QUERY_CONTRACT_ADDRESS, UNISWAP_QUERY_ABI, provider);
-    LOGGER.info("connected to contract")
+    logger.info("connected to contract")
     // this will get the first 10 000 pairs in batches of 500
-    for (let i = 0; i < 10000; i += UNISWAP_BATCH_SIZE) {
+    for (let i = UNISWAP_QUERY_START; i < UNISWAP_QUERY_END; i += UNISWAP_BATCH_SIZE) {
         const pairs = (await uniswapQuery.functions.getPairsByIndexRange(PANCAKE_FACTORY_ADDRESS, i, i + UNISWAP_BATCH_SIZE))[0];
         // each pair item is formatted as: [token1,token2,pairAddress]
         // for each pair in pairs we check whether token2 is busd or weth
@@ -71,13 +73,13 @@ const getPairs = async () => {
 
         }
         if (pairs.length < UNISWAP_BATCH_SIZE) {
-            LOGGER.info("breaking...")
+            logger.info("breaking...")
             break
         }
     }
 
-    LOGGER.info(`totalPairs fetched: ${allTokens.length}`)
-    LOGGER.info('filtering out honeypots, tokens with high buy/sell tax')
+    logger.info(`totalPairs fetched: ${allTokens.length}`)
+    logger.info('filtering out honeypots, tokens with high buy/sell tax')
     
     // this is an optional trick to ensure that there is both a busd and weth pair
     // if the token is missing a busd or weth pair we set the item to null so that we can eliminate it later
@@ -112,13 +114,13 @@ const getPairs = async () => {
     allTokens.length = 0;
 
     // filter for tokens that have a TAX or HONEYPOT and then filter again if the busd reserve is less than 1000 busd
-    LOGGER.info("testing pair [tokenToleranceCheck]");
+    logger.info("testing pair [tokenToleranceCheck]");
 
     const ethIn = ethers.utils.parseUnits("1", "ether");
 
     for (let i = 0; i < tokens.length; i++) {
-        LOGGER.info("processing token in tokens list at index: " + i);
-        LOGGER.info(tokens[i]);
+        logger.info("processing token in tokens list at index: " + i);
+        logger.info(tokens[i]);
         var processedData = TP_CONTRACT.encodeFunctionData( //we have a 1% (0.01) fee tolerance because we're accounting for the dex Fee
             'tokenToleranceCheck', [tokens[i], ethIn, ethers.utils.parseUnits("0.01", "ether")] //token address
         );
@@ -144,7 +146,7 @@ const getPairs = async () => {
             //}
         } catch (error) { //if toleranceCheck fails you will see the value indicating that we ignored this pair because of tax/honeypot
             //output[i] = "tax_or_honeypot";
-            LOGGER.error(`honeypot or high tax, ignoring token: ${poolInfo[i].tokenAddress}`)
+            logger.error(`honeypot or high tax, ignoring token: ${poolInfo[i].tokenAddress}`)
         };
 
     }
@@ -155,13 +157,13 @@ const getPairs = async () => {
     writeStream.write("[\n");
     output.forEach(value => writeStream.write(value+'\n'));
     writeStream.on('finish', () => {
-        LOGGER.info(`wrote all the array data to file ${pathName}`);
+        logger.info(`wrote all the array data to file ${pathName}`);
     });
     writeStream.write("]\n");
     writeStream.on('error', (err) => {
-        LOGGER.error(`There is an error writing the file ${pathName} => ${err}`)
+        logger.error(`There is an error writing the file ${pathName} => ${err}`)
     });
     writeStream.end();
-    LOGGER.info(tokens.length);
+    logger.info(tokens.length);
 }
 getPairs();
