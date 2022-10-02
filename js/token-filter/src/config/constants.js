@@ -6,6 +6,9 @@ const PANCAKE_FACTORY_ADDRESS = '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73';
 const WBNB_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
 const BUSD_ADDRESS = '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56';
 
+const MIN_WBNB_RESERVES = 5;
+const MIN_BUSD_RESERVES = 1000;
+
 const PAIR_CONTRACT_ABI = require("./abi/PairContract.json");
 
 //----- Address and ABI of the UniswapFlashQuery.sol contract that we use to fetch all pairs from a certain exchange
@@ -14,8 +17,8 @@ const UNISWAP_QUERY_ABI = require("./abi/UniswapFlashQuery.json");
 
 // UniswapFlasQuery.sol returns pairs in the same order each time in order of creation. 
 // There are too many pairs to get them all in one go, so we need to set the range we want to query
-const UNISWAP_QUERY_START = 0;
-const UNISWAP_QUERY_END = 10000;
+const UNISWAP_QUERY_START = 10000;
+const UNISWAP_QUERY_END = 20000;
 
 // Batch size to use when processing pairs pulled down
 const UNISWAP_BATCH_SIZE = 500;
@@ -35,11 +38,13 @@ module.exports = {
         PANCAKE_FACTORY_ADDRESS,
         WBNB_ADDRESS,
         BUSD_ADDRESS,
+        MIN_WBNB_RESERVES,
+        MIN_BUSD_RESERVES,
         PAIR_CONTRACT_ABI,
         UNISWAP_QUERY_CONTRACT_ADDRESS,
         UNISWAP_QUERY_ABI,
-	UNISWAP_QUERY_START,
-	UNISWAP_QUERY_END,
+	    UNISWAP_QUERY_START,
+	    UNISWAP_QUERY_END,
         UNISWAP_BATCH_SIZE,
         TP_CONTRACT_ADDRESS,
         TP_CONTRACT,

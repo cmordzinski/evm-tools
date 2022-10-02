@@ -7,6 +7,8 @@ const {
     RPC_URL_WSS,
     WBNB_ADDRESS,
     BUSD_ADDRESS,
+    MIN_WBNB_RESERVES,
+    MIN_BUSD_RESERVES,
     PANCAKE_FACTORY_ADDRESS,
     UNISWAP_QUERY_CONTRACT_ADDRESS,
     UNISWAP_QUERY_ABI,
@@ -16,13 +18,14 @@ const {
     TP_CONTRACT_ADDRESS,
     TP_CONTRACT,
     BNB_RESERVE_ADDRESS,
-//   PAIR_CONTRACT_ABI,
+    PAIR_CONTRACT_ABI,
 } = require('./config/constants.js');
 
 // The contract called here is the UniswapFlashQuery contract
 const getPairs = async () => {   
     let allPoolInfo = [];
     let allTokens = [];
+    let output = [];
     const provider = new ethers.providers.WebSocketProvider(RPC_URL_WSS);
     logger.info("connected to RPC")
     const uniswapQuery = new ethers.Contract(UNISWAP_QUERY_CONTRACT_ADDRESS, UNISWAP_QUERY_ABI, provider);
@@ -77,52 +80,24 @@ const getPairs = async () => {
             break
         }
     }
-
-    logger.info(`totalPairs fetched: ${allTokens.length}`)
-    logger.info('filtering out honeypots, tokens with high buy/sell tax')
+    logger.info(`totalPairs fetched: ${allTokens.length}`);
     
-    // this is an optional trick to ensure that there is both a busd and weth pair
-    // if the token is missing a busd or weth pair we set the item to null so that we can eliminate it later
-    //for (let i = 0; i < allPoolInfo.length; i++) {
-    //    try {
-    //        if (allPoolInfo[i].busdPair === '' || allPoolInfo[i].wethPair === '') { 
-    //            allTokens[i] = null;
-    //            allPoolInfo[i] = null;
-    //        } else {
-    //            continue;
-    //        }
-    //    } catch (err) {
-    //        continue;
-    //    }
-    //}
-
-    let poolInfo = [];
-    let tokens = [];
-    let output = [];
-
-    //if value is null we remove it from array. Note that everything is done in parallel so that the first token in allTokens corresponds to the right output_info 
-    //.filter create a new array (in this case tokens) that has been filtered
-    tokens = allTokens.filter(function(value, index, arr) {
+    allTokens = allTokens.filter(function(value, index, arr) {
         return value != null;
     });
 
-    poolInfo = allPoolInfo.filter(function(value, index, arr) {
+    allPoolInfo = allPoolInfo.filter(function(value, index, arr) {
         return value != null;
     });
 
-    allPoolInfo.length = 0;
-    allTokens.length = 0;
-
-    // filter for tokens that have a TAX or HONEYPOT and then filter again if the busd reserve is less than 1000 busd
-    logger.info("testing pair [tokenToleranceCheck]");
+    logger.info('filtering out honeypots, tokens with high buy/sell tax, tokens with low reserves in the pair pool');
 
     const ethIn = ethers.utils.parseUnits("1", "ether");
-
-    for (let i = 0; i < tokens.length; i++) {
-        logger.info("processing token in tokens list at index: " + i);
-        logger.info(tokens[i]);
+    
+    for (let i = 0; i < allTokens.length; i++) {
+        logger.info(`processing token [${allTokens[i]}]`);
         var processedData = TP_CONTRACT.encodeFunctionData( //we have a 1% (0.01) fee tolerance because we're accounting for the dex Fee
-            'tokenToleranceCheck', [tokens[i], ethIn, ethers.utils.parseUnits("0.01", "ether")] //token address
+            'tokenToleranceCheck', [allTokens[i], ethIn, ethers.utils.parseUnits("0.01", "ether")]
         );
         var checkTxn = {
             from: BNB_RESERVE_ADDRESS,
@@ -132,38 +107,54 @@ const getPairs = async () => {
             gasPrice: ethers.BigNumber.from(13),
             gasLimit: ethers.BigNumber.from(6500000),
         }
-        //we check token fee whithout using any gas: .call() only simulates a tx and we pretend to send from an address that has enough bnb (BNB_RESERVE_ADDRESS)
+        // .call() only simulates a tx and we pretend to send from an address that has enough bnb (BNB_RESERVE_ADDRESS)
+        // if the token has a tax > tolerance, or is honeypot this will throw an error
         try {
-            await provider.call(checkTxn) //if the token has a tax or is honeypot this will throw an error
-            // --- this can be used to check minimum busd reserves, but many pairs dont have this function and error
-            //const pairContract = new ethers.Contract(poolInfo[i].busdPair, PAIR_CONTRACT_ABI, provider);
-            //let reserves = await pairContract.getReserves(); //if this doesnt throw an error we proceed to check minimum reserves amount
-            //if (reserves._reserve1 / (10 ** 18) > 1000) {
-            //output[i] = [poolInfo[i].tokenAddress, poolInfo[i].busdPair, poolInfo[i].wethPair]; //if enough reserves we create a output item with [token, busdPair, wethPair] addresses
-            output[i] = ['"'+poolInfo[i].tokenAddress+'"'+",",];
-            //} else {
-            //    output[i] = "low_busd_reserves"; //else you will see a value indicating that we ignored this pair because of not enough reserves
-            //}
-        } catch (error) { //if toleranceCheck fails you will see the value indicating that we ignored this pair because of tax/honeypot
-            //output[i] = "tax_or_honeypot";
-            logger.error(`honeypot or high tax, ignoring token: ${poolInfo[i].tokenAddress}`)
-        };
+            await provider.call(checkTxn)
+        } catch (error) { 
+            logger.error('error calling tokenToleranceCheck(), honeypot or high tax');
+            continue;
+        }
+        // If there is a WBNB pair, get its reserves
+        if (allPoolInfo[i].wethPair !== "") {
+            
+            const wethPairContract = new ethers.Contract(allPoolInfo[i].wethPair, PAIR_CONTRACT_ABI, provider);
+            let wethReserves = await wethPairContract.getReserves(); //if this doesnt throw an error we proceed to check minimum reserves amount
+            if (wethReserves._reserve1 / (10 ** 18) > MIN_WBNB_RESERVES) {
+                //output[i] = [allPoolInfo[i].tokenAddress, allPoolInfo[i].busdPair, allPoolInfo[i].wethPair]; //if enough reserves we create a output item with [token, busdPair, wethPair] addresses
+                output[i] = ['"'+allPoolInfo[i].tokenAddress+'"'+",",];
+            } else {
+                logger.error(`low WBNB reserves: ${allPoolInfo[i].tokenAddress}`);
+            }
+        }
+        // If there is a BUSD pair, get its reserves
+        if (allPoolInfo[i].busdPair !== "") {
+            const busdPairContract = new ethers.Contract(allPoolInfo[i].busdPair, PAIR_CONTRACT_ABI, provider);
+            let busdReserves = await busdPairContract.getReserves(); //if this doesnt throw an error we proceed to check minimum reserves amount
+            if (busdReserves._reserve1 / (10 ** 18) > MIN_BUSD_RESERVES) {
+                //output[i] = [allPoolInfo[i].tokenAddress, allPoolInfo[i].busdPair, allPoolInfo[i].wethPair]; //if enough reserves we create a output item with [token, busdPair, wethPair] addresses
+                output[i] = ['"'+allPoolInfo[i].tokenAddress+'"'+",",];
+            } else {
+                logger.error(`low BUSD reserves: ${allPoolInfo[i].tokenAddress}`);
+            }
+        }
 
-    }
+    };
 
     const writeStream = fs.createWriteStream('../output/whitelisted_tokens.json');
     const pathName = writeStream.path;
     
-    writeStream.write("[\n");
+    //writeStream.write("[\n");
     output.forEach(value => writeStream.write(value+'\n'));
     writeStream.on('finish', () => {
         logger.info(`wrote all the array data to file ${pathName}`);
     });
-    writeStream.write("]\n");
+    //writeStream.write("]\n");
     writeStream.on('error', (err) => {
         logger.error(`There is an error writing the file ${pathName} => ${err}`)
     });
     writeStream.end();
-    logger.info(tokens.length);
-}
+    logger.info(allTokens.length);
+    }
+
 getPairs();
