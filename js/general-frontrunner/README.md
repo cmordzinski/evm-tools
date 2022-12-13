@@ -1,4 +1,4 @@
-Original code copied from: https://github.com/xCaptainFortune/Frontrunning-Bot-by-xCaptainFortune
+Original code copied and reformatted from: https://github.com/xCaptainFortune/Frontrunning-Bot-by-xCaptainFortune
 
 # Frontrunning Bot by xCaptainFortune
 
