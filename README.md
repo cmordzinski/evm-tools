@@ -10,4 +10,4 @@ python tools
 
 ## js
 javascript tools
-- this js code is pretty heinous, I hate js dont judge
+- this js code is pretty heinous in places, dont judge
