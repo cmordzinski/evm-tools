@@ -28,6 +28,7 @@ const RPC_URL_WSS = process.env.RPC_URL_WSS;
 
 // Constants for 'strategy' to use
 const INPUT_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'; // main token being swapped against in the pool. Typically WETH, BUSD, etc
+const OUTPUT_TOKEN_ADDRESSES = require("./whitelisted_tokens.json"); // json array of tokens we are willing to attempt to frontrun, use token-filter for this
 const ONE_GWEI = 1e9;
 const MAX_AMOUNT = 20; // Max about of INPUT_TOKEN_ADDRESS to use in one swap.
 const SLIPPAGE = 1.04; // Adjust for volatility in the pool, how much slippage to allow. 
@@ -59,4 +60,5 @@ module.exports = {
     ONE_GWEI,
 
     INPUT_TOKEN_ADDRESS,
+    OUTPUT_TOKEN_ADDRESSES,
 };

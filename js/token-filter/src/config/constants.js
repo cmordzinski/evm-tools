@@ -3,8 +3,8 @@ const {ethers} = require('ethers');
 const RPC_URL_WSS = "wss://ws-nd-654-414-664.p2pify.com/ae9f2cd14774753ae3150be26252ebbb";
 const MIN_WBNB_RESERVES = 5; // minumum amount of WBNB returned when calling getReserves() for pair to be included in output
 const MIN_BUSD_RESERVES = 1000; // minimum amount of BUSD returned when calling getReserves() for pair to be included in output
-const UNISWAP_QUERY_START = 50000; // UniswapFlasQuery.sol returns pairs in the same order each time in order of creation. 
-const UNISWAP_QUERY_END = 100000;   // There are too many pairs to get them all in one go, so we need to set the range we want to query
+const UNISWAP_QUERY_START = 1050000; // UniswapFlasQuery.sol returns pairs in the same order each time in order of creation. 
+const UNISWAP_QUERY_END = 1133703;   // There are too many pairs to get them all in one go, so we need to set the range we want to query
 
 // V2 factory address, along with the addresses of the 2 tokens we want to filter against for pairs
 // here, we are filtering for all XXX-WBNB and XXX-BUSD pairs

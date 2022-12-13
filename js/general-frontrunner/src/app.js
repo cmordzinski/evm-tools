@@ -20,47 +20,39 @@ const {
     MINPROFIT,
     ONE_GWEI,
     INPUT_TOKEN_ADDRESS,
+    OUTPUT_TOKEN_ADDRESSES,
 } = require('./config/constants.js');
 
-OUTPUT_TOKEN_ADDRESSES = require("./config/whitelisted_tokens.json");
-
-var web3;
-var web3Ws;
-var pancakeRouter;
-var pancakeFactory;
-
-// Define web3, web3Ws, pancakeRouter, pancakeFactory objects
-web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL));
-web3Ws = new Web3(new Web3.providers.WebsocketProvider(RPC_URL_WSS));
-pancakeRouter = new web3.eth.Contract(PANCAKE_ROUTER_ABI, PANCAKE_ROUTER_ADDRESS);
-pancakeFactory = new web3.eth.Contract(PANCAKE_FACTORY_ABI, PANCAKE_FACTORY_ADDRESS);
+// Define web3, web3Ws, pancakeRouter, pancakeFactory, userWallet objects
+const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL));
+const web3Ws = new Web3(new Web3.providers.WebsocketProvider(RPC_URL_WSS));
+const pancakeRouter = new web3.eth.Contract(PANCAKE_ROUTER_ABI, PANCAKE_ROUTER_ADDRESS);
+const pancakeFactory = new web3.eth.Contract(PANCAKE_FACTORY_ABI, PANCAKE_FACTORY_ADDRESS);
+const userWallet = web3.eth.accounts.privateKeyToAccount(WALLET_PRIVATE_KEY);
 abiDecoder.addABI(PANCAKE_ROUTER_ABI);
 
-// Get a LocalAccount object using the WALLET_PRIVATE_KEY
-const user_wallet = web3.eth.accounts.privateKeyToAccount(WALLET_PRIVATE_KEY);
-
-var buyNonce;
-var sellNonce
-var pool_info = [];
+let buyNonce;
+let sellNonce;
+let pool_info = [];
 let i;
-var amount;
-var subscription;
-var attack_started = false;
+let amount;
+let subscription;
+let attack_started = false;
 
 // Start
 const start = async () => {
     logger.info('gathering preliminary information')
-    buyNonce = await web3.eth.getTransactionCount(user_wallet.address);
+    buyNonce = await web3.eth.getTransactionCount(userWallet.address);
     sellNonce = buyNonce + 1
     logger.info(`buy nonce: ${buyNonce} - sell nonce: ${sellNonce}`);
-    const len_wl_token_list = OUTPUT_TOKEN_ADDRESSES.length
-    logger.info(`${len_wl_token_list} tokens found in OUTPUT_TOKEN_ADDRESSES`);
-    for (var index = 0; index < len_wl_token_list; index++) {
-        logger.info(`getting pool info for ${index+1}/${len_wl_token_list} tokens`);
+    const lenTokenList = OUTPUT_TOKEN_ADDRESSES.length
+    logger.info(`${lenTokenList} tokens found in OUTPUT_TOKEN_ADDRESSES`);
+    for (let index = 0; index < lenTokenList; index++) {
+        logger.info(`getting pool info for ${index+1}/${lenTokenList} tokens`);
         await getPoolInfo(INPUT_TOKEN_ADDRESS, OUTPUT_TOKEN_ADDRESSES, index);
     }
     logger.info('getting pool info for tokens in OUTPUT_TOKEN_ADDRESSES complete');
-}
+};
 
 async function main() {
     try {
@@ -68,60 +60,54 @@ async function main() {
             web3Ws.send(JSON.stringify({
                 method: "subscribe",
                 topic: "transfers",
-                address: user_wallet.address
+                address: userWallet.address
             }));
             logger.info('connected');
         }
         logger.info('subscribing to pendingTransaction events');
         subscription = web3Ws.eth.subscribe('pendingTransactions', function(error, result) {}).on("data", async function(transactionHash) {
-            let transaction = await web3.eth.getTransaction(transactionHash);
-            if (transaction != null && transaction['to'] == PANCAKE_ROUTER_ADDRESS) {
-                await handleTransaction(transaction, OUTPUT_TOKEN_ADDRESSES, user_wallet);
-            }
+        let transaction = await web3.eth.getTransaction(transactionHash);
+        if (transaction != null && transaction['to'] == PANCAKE_ROUTER_ADDRESS) {
+            await handleTransaction(transaction, OUTPUT_TOKEN_ADDRESSES, userWallet);
+        }
         })
     } catch (error) {
         logger.error(`failed to fetch mempool data: ${error}`);
-        process.exit();
     }
-}
+};
 
-async function handleTransaction(transaction, out_token_addresses, user_wallet) {
-
+async function handleTransaction(transaction, out_token_addresses, userWallet) {
     if (await triggersFrontRun(transaction, out_token_addresses)) {
         subscription.unsubscribe();
-        let gasPrice = parseInt(transaction['gasPrice']);
-        let newGasPrice = gasPrice + GASPRICE * ONE_GWEI;
         if (amount > MAX_AMOUNT) {
             amount = MAX_AMOUNT
-        }
-        var estimatedInput = ((amount * 0.999) * (10 ** 18));
-        var realInput = SLIPPAGE * (amount * (10 ** 18));
-        var gasLimit = (300000);
-        var outputtoken = await getAmountOut(estimatedInput, pool_info[i].input_volumn, pool_info[i].output_volumn);
-        swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_addresses[i], user_wallet, transaction);
-        swap(gasPrice, gasLimit, outputtoken, 0, 1, out_token_addresses[i], user_wallet, transaction);
+        };
+        const gasPrice = parseInt(transaction['gasPrice']);
+        const newGasPrice = gasPrice + GASPRICE * ONE_GWEI;
+        const gasLimit = (300000);
+        const estimatedInput = ((amount * 0.999) * (10 ** 18));
+        const realInput = SLIPPAGE * (amount * (10 ** 18));
+        const outputtoken = await getAmountOut(estimatedInput, pool_info[i].input_volumn, pool_info[i].output_volumn);
+        swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_addresses[i], userWallet, transaction);
+        swap(gasPrice, gasLimit, outputtoken, 0, 1, out_token_addresses[i], userWallet, transaction);
         logger.info('attempted frontrun - txHash: ' + transaction['hash']);
         attack_started = false;
         return execute();
     }
-}
+};
 
 async function triggersFrontRun(transaction, out_token_addresses) {
-    if (attack_started)
-        return false;
-    if (parseInt(transaction['gasPrice']) / 10 ** 9 > 10 || parseInt(transaction['gasPrice']) / 10 ** 9 < 3) {
-        return false;
-    }
-    logger.info('txHash: ' + transaction['hash']);
-    logger.info('gasPrice: ' + transaction['gasPrice'] / 10 ** 9);
     let data = parseTx(transaction['input']);
     let method = data[0];
     let params = data[1];
-    if (method != 'swapExactETHForTokens' && method != 'swapExactTokensForTokens') {
-        logger.info('method called is not swapExactEthForTokens or swapExactTokensForTokens, ignoring.');
+    logger.info(`txHash: ${transaction['hash']} method: ${method} gasPrice ${transaction['gasPrice'] / 10 ** 9}`);
+    if (attack_started) {
+        return false;
+    } else if (parseInt(transaction['gasPrice']) / 10 ** 9 > 10 || parseInt(transaction['gasPrice']) / 10 ** 9 < 3) {
+        return false;
+    } else if (method != 'swapExactETHForTokens' && method != 'swapExactTokensForTokens') {
         return false;
     } else if (method == 'swapExactETHForTokens') {
-        logger.info('method:' + method);
         let path = params[1].value;
         let in_token_addr = path[0];
         let out_token_addr = path[path.length - 1];
@@ -130,8 +116,8 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         if (_.includes(out_token_addresses, out_token_addr)) {
             i = _.indexOf(out_token_addresses, out_token_addr)
         } else {
-            logger.error('token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
-            logger.error('token address: ' + out_token_addr);
+            logger.info('token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
+            logger.info('token address: ' + out_token_addr);
             return false;
         }
         //reserves have to be divided by decimals
@@ -161,7 +147,7 @@ async function triggersFrontRun(transaction, out_token_addresses) {
             return false;
         }
     } else if (method == 'swapExactTokensForTokens') {
-        logger.info('method:' + method);
+        //logger.info('method:' + method);
         let path = params[2].value;
         let in_token_addr = path[path.length - 2];
         let out_token_addr = path[path.length - 1];
@@ -170,8 +156,8 @@ async function triggersFrontRun(transaction, out_token_addresses) {
         if (_.includes(out_token_addresses, out_token_addr)) {
             i = _.indexOf(out_token_addresses, out_token_addr)
         } else {
-            logger.error('token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
-            logger.error('token address: ' + out_token_addr);
+            logger.info('token not whitelisted in OUTPUT_TOKEN_ADDRESSES, ignoring.');
+            logger.info('token address: ' + out_token_addr);
             return false;
         }
         if (in_token_addr != INPUT_TOKEN_ADDRESS) {
@@ -203,10 +189,11 @@ async function triggersFrontRun(transaction, out_token_addresses) {
             logger.info('estimated profit too low, skipping.');
             return false;
         }
+    } else {
+        logger.info('skipping due to implicit ignore')
+        return false;
     }
-    logger.info('skipping due to implicit ignore')
-    return false;
-}
+};
 
 async function getAmountOut(aIn, reserveA, reserveB) {
     const aInWithFee = BigNumber(aIn).multiply(997); //0.3% fee that's right
@@ -214,10 +201,10 @@ async function getAmountOut(aIn, reserveA, reserveB) {
     const denominator = BigNumber(aInWithFee).add(BigNumber(reserveA).multiply(1000));
     const bOut = BigNumber(numerator).divide(denominator);
     return bOut
-}
+};
 
-async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token_address, user_wallet, transaction) {
-    var from = user_wallet;
+async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token_address, userWallet, transaction) {
+    var from = userWallet;
     var deadline;
     var swap;
     await web3.eth.getBlock('latest', (error, block) => {
@@ -261,7 +248,7 @@ async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token
     } else {
         web3.eth.sendSignedTransaction(signedTx.rawTransaction)
     }
-}
+};
 
 function parseTx(input) {
     if (input == '0x')
@@ -271,11 +258,11 @@ function parseTx(input) {
     let params = decodedData['params'];
 
     return [method, params]
-}
+};
 
 async function isPending(transactionHash) {
     return await web3.eth.getTransactionReceipt(transactionHash) == null;
-}
+};
 
 async function getPoolInfo(input_token_address, out_token_addresses, index) {
 
@@ -301,7 +288,7 @@ async function getPoolInfo(input_token_address, out_token_addresses, index) {
         'input_volumn': bnb_balance,
         'output_volumn': token_balance
     }
-}
+};
 
 async function updatePoolInfo(i) {
     try {
@@ -325,7 +312,7 @@ async function updatePoolInfo(i) {
 
         return false;
     }
-}
+};
 
 //-----------------EXTRA FUNCTIONS getPairAddress of tokenA-tokenB pool offline.
 //const getUniv2PairAddress = (tokenA, tokenB) => {
