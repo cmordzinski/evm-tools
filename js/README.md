@@ -27,5 +27,5 @@ Mass filter token pairs on an exchange
 cd token-filter
 npm install
 node src/app.js
-cat output/filter.txt - this is where filtered pairs that make the cut will be written to
+cat output/whitelisted_tokesn.json - this is where filtered pairs that make the cut will be written to
 </pre>
