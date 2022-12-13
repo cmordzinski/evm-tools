@@ -16,8 +16,8 @@ General frontrunner bot to attempt to frontrun transactions with large amounts o
 <pre>
 cd general-frontrunner
 npm install
-node approveTokens.js - this will approve all the tokens in OUTPUT_TOKEN_ADDRESSES for swaps, make sure you have enough gas
-node bot.js - this will run the bot to attempt to frontrun pending tx of tokens in OUTPUT_TOKEN_ADDRESSES when profitable
+node src/utils/approveTokens.js - this will approve all the tokens in OUTPUT_TOKEN_ADDRESSES for swaps, make sure you have enough gas
+node src/app.js - this will run the bot to attempt to frontrun pending tx of tokens in OUTPUT_TOKEN_ADDRESSES when profitable
 </pre>
 
 ## token-filter
@@ -26,6 +26,6 @@ Mass filter token pairs on an exchange
 <pre>
 cd token-filter
 npm install
-node filter.js
-cat filter.txt - this is where filtered pairs that make the cut will be written to
+node src/app.js
+cat output/filter.txt - this is where filtered pairs that make the cut will be written to
 </pre>
