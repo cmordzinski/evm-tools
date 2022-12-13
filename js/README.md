@@ -1,6 +1,6 @@
 # JavaScript
 
-Collection of JavaScript tools to interact with EVM compatible blockchains. The code in this repository primarily exists for learning/experimenting purposes.
+Collection of JavaScript tools to interact with EVM compatible blockchains. The code in this repository primarily exists for learning/experimenting purposes. Lots of the code in these subdirs is franken-code copy pasted and pieced together from other places, dont judge. Mainly reformatted things found in https://github.com/xCaptainFortune/NO-BULLSHIT-GUIDE-TO-MEV-By-CaptainFortune for the purpose of learning how they were meant to work.
 <p>
 
 Prerequisites:
