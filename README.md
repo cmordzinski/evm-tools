@@ -7,7 +7,3 @@ README.md files in each subdirectory contain more detailed info about the tools 
 
 ## python
 python tools
-
-## js
-javascript tools
-- this js code is pretty heinous in places, dont judge
